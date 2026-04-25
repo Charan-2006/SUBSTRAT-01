@@ -1,0 +1,433 @@
+/* =============================================
+   DESIGN SYSTEM — Minimal Professional Palette
+   Inspired by Linear / Notion / Stripe
+   ============================================= */
+
+:root {
+    /* Surfaces */
+    --bg: #f8f9fb;
+    --surface: #ffffff;
+    --surface-alt: #f3f4f6;
+
+    /* Borders */
+    --border: #e5e7eb;
+    --border-light: #f0f0f3;
+
+    /* Text */
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --text-tertiary: #9ca3af;
+
+    /* Accent (restrained blue) */
+    --accent: #4f6ef7;
+    --accent-hover: #4361d9;
+    --accent-subtle: rgba(79, 110, 247, 0.08);
+
+    /* Status — muted tones */
+    --green: #16a34a;
+    --green-bg: rgba(22, 163, 74, 0.08);
+    --green-border: rgba(22, 163, 74, 0.18);
+
+    --amber: #d97706;
+    --amber-bg: rgba(217, 119, 6, 0.08);
+    --amber-border: rgba(217, 119, 6, 0.18);
+
+    --red: #dc2626;
+    --red-bg: rgba(220, 38, 38, 0.06);
+    --red-border: rgba(220, 38, 38, 0.15);
+
+    /* Status Subtle (for badges) */
+    --status-blue-bg: rgba(79, 110, 247, 0.08);
+    --status-amber-bg: rgba(245, 158, 11, 0.08);
+    --status-orange-bg: rgba(217, 119, 6, 0.08);
+    --status-purple-bg: rgba(124, 58, 237, 0.07);
+    --status-green-bg: rgba(16, 185, 129, 0.08);
+
+    /* Misc */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --radius: 8px;
+    --radius-lg: 12px;
+
+    /* Gradients */
+    --overlay-gradient: linear-gradient(160deg, rgba(255, 255, 255, 0.88) 30%, rgba(240, 244, 255, 0.82) 100%);
+
+    /* Transition */
+    --theme-transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="dark"] {
+    /* Surfaces */
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-alt: #21262d;
+
+    /* Borders */
+    --border: #30363d;
+    --border-light: #21262d;
+
+    /* Text */
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+    --text-tertiary: #6e7681;
+
+    /* Accent */
+    --accent: #58a6ff;
+    --accent-hover: #388bfd;
+    --accent-subtle: rgba(88, 166, 255, 0.1);
+
+    /* Status */
+    --green: #3fb950;
+    --green-bg: rgba(63, 185, 80, 0.1);
+    --amber: #d29922;
+    --amber-bg: rgba(210, 153, 34, 0.1);
+    --red: #f85149;
+    --red-bg: rgba(248, 81, 73, 0.1);
+
+    --status-blue-bg: rgba(88, 166, 255, 0.15);
+    --status-amber-bg: rgba(210, 153, 34, 0.15);
+    --status-orange-bg: rgba(217, 119, 6, 0.15);
+    --status-purple-bg: rgba(188, 143, 255, 0.15);
+    --status-green-bg: rgba(63, 185, 80, 0.15);
+
+    --overlay-gradient: linear-gradient(160deg, rgba(13, 17, 23, 0.85) 30%, rgba(22, 27, 34, 0.8) 100%);
+
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+
+/* ---- Reset & Base ---- */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    transition: var(--theme-transition);
+}
+
+body * {
+    transition: var(--theme-transition);
+}
+
+/* ---- Cards ---- */
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ---- Grid ---- */
+
+.grid {
+    display: grid;
+    gap: 16px;
+}
+
+.grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 900px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .grid-4, .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ---- Tables ---- */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+}
+
+tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr:hover {
+    background-color: var(--surface-alt);
+}
+
+/* ---- Buttons ---- */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 1;
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    background: var(--surface-alt);
+    border-color: #d1d5db;
+}
+
+.btn:active {
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.btn-success {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green);
+}
+
+.btn-success:hover {
+    background: #15803d;
+    border-color: #15803d;
+}
+
+.btn-danger {
+    background: #fff;
+    color: var(--red);
+    border-color: var(--red-border);
+}
+
+.btn-danger:hover {
+    background: var(--red-bg);
+    border-color: var(--red);
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+/* ---- Forms ---- */
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.form-control {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    outline: none;
+}
+
+.form-control:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.form-control::placeholder {
+    color: var(--text-tertiary);
+}
+
+select.form-control {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+}
+
+/* ---- Workflow Status Indicators ---- */
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    background: var(--surface-alt);
+    color: var(--text-secondary);
+}
+
+.status-IN_PROGRESS { background: var(--status-blue-bg); color: var(--accent); }
+.status-DRC         { background: var(--status-amber-bg); color: #b45309; }
+.status-LVS         { background: var(--status-orange-bg); color: #92400e; }
+.status-REVIEW      { background: var(--status-purple-bg); color: #7c3aed; }
+.status-COMPLETED   { background: var(--status-green-bg); color: #059669; }
+
+/* ---- Health Status (Inline Dot) ---- */
+
+.health-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.health-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.health-dot-HEALTHY  { background-color: var(--green); }
+.health-dot-RISK     { background-color: var(--amber); }
+.health-dot-CRITICAL { background-color: var(--red); }
+
+/* ---- Summary Stat Cards ---- */
+
+.stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+}
+
+.stat-card-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-card-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    opacity: 0.4;
+}
+
+/* ---- Row Highlights ---- */
+
+.row-critical {
+    background-color: rgba(239, 68, 68, 0.03) !important;
+}
+
+.row-selected {
+    background-color: rgba(79, 110, 247, 0.04) !important;
+}
+
+.row-selected {
+    background-color: var(--accent-subtle) !important;
+}
+
+.row-selected:hover {
+    background-color: var(--accent-subtle) !important;
+}
+
+/* ---- Alert boxes ---- */
+
+.alert {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.alert-warning {
+    background: var(--amber-bg);
+    color: #92400e;
+    border: 1px solid var(--amber-border);
+}
+
+/* ---- App Shell Layout ---- */
+
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.app-body {
+    display: flex;
+    flex: 1;
+}
+
+.app-main {
+    flex: 1;
+    min-width: 0;
+    padding: 28px 32px;
+    overflow-x: auto;
+}
+
