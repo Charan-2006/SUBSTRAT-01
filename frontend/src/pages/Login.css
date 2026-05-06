@@ -5,8 +5,10 @@
     justify-content: center;
     align-items: center;
     height: 100vh;
+    background: var(--bg);
     color: var(--text-tertiary);
     font-size: 14px;
+    font-weight: 600;
 }
 
 .login-container {
@@ -14,6 +16,7 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  background: var(--bg);
 }
 
 .login-left {
@@ -22,19 +25,15 @@
   position: relative;
   background-size: cover;
   background-repeat: no-repeat;
-  background-position: 40% center;
+  background-position: center;
 }
 
 .login-left::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    circle at 60% 50%,
-    rgba(59,130,246,0.25),
-    transparent 60%
-  );
-  mix-blend-mode: soft-light;
+  background: linear-gradient(135deg, rgba(0, 82, 204, 0.4), transparent);
+  z-index: 1;
 }
 
 .login-left::after {
@@ -43,11 +42,11 @@
   inset: 0;
   background: linear-gradient(
     to right,
-    rgba(248,250,252,0.9) 10%,
-    rgba(248,250,252,0.5) 35%,
-    rgba(248,250,252,0.1) 60%,
-    transparent 100%
+    var(--bg) 0%,
+    rgba(247, 248, 250, 0.8) 20%,
+    rgba(247, 248, 250, 0) 100%
   );
+  z-index: 2;
 }
 
 .login-right {
@@ -56,113 +55,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(
-    circle at top right,
-    #e0f2fe,
-    #f8fafc 40%
-  );
+  background: var(--bg);
+  position: relative;
+  z-index: 3;
 }
 
-.login-content-right {
-  max-width: 400px;
-  width: 100%;
-  padding: 0 24px;
+.login-card {
+  width: 420px;
+  padding: 48px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.6s cubic-bezier(0.2, 0, 0, 1);
 }
-
-.brand {
-  font-size: 13px;
-  color: #3b82f6;
-  font-weight: 500;
-  margin-bottom: 10px;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  background: #3b82f6;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 6px;
-}
-
-.login-title {
-  font-size: 30px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-  color: #0f172a;
-}
-
-.login-subtitle {
-  margin-top: 12px;
-  font-size: 15px;
-  color: #64748b;
-  line-height: 1.5;
-  margin-bottom: 32px;
-}
-
-.features {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  color: #334155;
-}
-
-.feature-item:hover {
-  transform: translateX(4px);
-  transition: 0.2s ease;
-}
-
-.feature-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #60a5fa);
-  box-shadow: 0 0 6px rgba(59,130,246,0.5);
-}
-
-.google-btn {
-  margin-top: 30px;
-  width: 100%;
-  padding: 14px;
-  border-radius: 12px;
-  border: none;
-  background: linear-gradient(
-    135deg,
-    #2563eb,
-    #3b82f6
-  );
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  box-shadow: 
-    0 8px 20px rgba(37,99,235,0.3);
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.google-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 
-    0 12px 28px rgba(37,99,235,0.4);
-}
-
-
-
-
-
-
 
 @keyframes fadeUp {
   from {
@@ -175,87 +81,84 @@
   }
 }
 
-.login-card {
-  width: 420px;
-  padding: 42px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(18px);
-  border: 1px solid rgba(255,255,255,0.5);
-  box-shadow:
-    0 20px 40px rgba(0,0,0,0.08),
-    0 4px 12px rgba(0,0,0,0.05);
-  transition: transform 0.3s ease;
-  animation: fadeUp 0.6s ease;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 32px;
 }
 
-.login-card:hover {
-  transform: translateY(-2px);
+.login-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
 }
 
-.login-card-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 6px;
-    letter-spacing: -0.01em;
+.login-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 32px;
 }
 
-.login-card-subtitle {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin: 0 0 28px;
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 40px;
 }
 
-/* Google button */
-.login-google-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 100%;
-    padding: 11px 20px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface);
-    color: var(--text-primary);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
-.login-google-btn:hover {
-    background: var(--surface-alt);
-    border-color: var(--text-tertiary);
-    box-shadow: var(--shadow);
+.feature-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-subtle);
 }
 
-.login-google-svg {
-    flex-shrink: 0;
+.google-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: var(--transition);
+  cursor: pointer;
 }
 
-/* Footer text */
-.login-card-footer {
-    margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-light);
+.google-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.3);
 }
-
-.login-card-footer p {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    margin: 0;
-}
-
-/* ---- Responsive: hide left panel on small screens ---- */
 
 @media (max-width: 992px) {
-    .login-left {
-        display: none;
-    }
-
-    .login-right {
-        flex: 1;
-    }
+  .login-left {
+    display: none;
+  }
+  .login-right {
+    width: 100%;
+  }
 }

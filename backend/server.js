@@ -6,20 +6,38 @@ const passport = require('passport');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 
+const app = express();
+
+// Health check route
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ success: true, message: 'Server is up and running' });
+});
+
 // Load env vars
 dotenv.config();
 
 // Connect to database
-connectDB();
-
-const app = express();
+const startServer = async () => {
+    try {
+        await connectDB();
+        
+        const PORT = process.env.PORT || 5000;
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log(`Redirecting to frontend at: ${process.env.FRONTEND_URL}`);
+        });
+    } catch (err) {
+        console.error('Failed to start server:', err);
+        process.exit(1);
+    }
+};
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({
-    origin: [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
+    origin: [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176'],
     credentials: true,
 }));
 
@@ -32,21 +50,25 @@ const authRoutes = require('./routes/auth');
 const blockRoutes = require('./routes/blocks');
 const userRoutes = require('./routes/users');
 const notificationRoutes = require('./routes/notifications');
+const requestRoutes = require('./routes/requests');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/blocks', blockRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/requests', requestRoutes);
 
 // Error handling middleware
-app.use((err, req, res, _next) => {
+app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ success: false, message: 'Server Error' });
+    res.status(500).json({ 
+        success: false, 
+        message: err.message || 'Server Error' 
+    });
 });
 
-const PORT = process.env.PORT || 5000;
+// Start server
+startServer();
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+

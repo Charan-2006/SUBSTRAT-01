@@ -72,67 +72,44 @@ const BlockSchema = new mongoose.Schema({
     rejectionCount: {
         type: Number,
         default: 0
+    },
+    stageStartTime: {
+        type: Date,
+        default: Date.now
+    },
+    stageHistory: [
+        {
+            stage: String,
+            startTime: Date,
+            endTime: Date,
+            durationHours: Number
+        }
+    ],
+    totalTimeSpent: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 
-// Pre-save hook for effort estimation logic (async pattern - no callback needed)
-BlockSchema.pre('save', function() {
-    if (this.isModified('baseHours') || this.isModified('complexity')) {
-        let factor = 1;
-        switch (this.complexity) {
-            case 'SIMPLE': factor = 1; break;
-            case 'MEDIUM': factor = 1.5; break;
-            case 'COMPLEX': factor = 2; break;
-            case 'CRITICAL': factor = 3; break;
-        }
-        this.estimatedHours = this.baseHours * factor;
+const workflowService = require('../services/workflowService');
+
+// Pre-save hook for effort estimation logic
+BlockSchema.pre('save', async function() {
+    if (this.isModified('complexity') || this.isModified('techNode')) {
+        this.estimatedHours = workflowService.calculateEstimation(this.complexity, this.techNode);
     }
+    
+    // Auto-calculate health before saving
+    const health = workflowService.calculateHealth(this);
+    this.healthStatus = health.status;
+    this.healthReasons = health.reasons;
 });
 
-// Method to dynamically calculate health
+// Method to dynamically calculate health (for API usage)
 BlockSchema.methods.calculateHealth = function() {
-    let status = 'HEALTHY';
-    let reasons = [];
-
-    // 1. Rejections
-    if (this.rejectionCount >= 2) {
-        status = 'CRITICAL';
-        reasons.push(`${this.rejectionCount} rejections`);
-    } else if (this.rejectionCount === 1) {
-        if (status !== 'CRITICAL') status = 'RISK';
-        reasons.push('1 rejection');
-    }
-
-    // 2. Inactivity (hours since last update)
-    const lastUpdate = this.updatedAt || new Date();
-    const hoursSinceUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceUpdate > 48) {
-        status = 'CRITICAL';
-        reasons.push(`Inactive for >48h`);
-    } else if (hoursSinceUpdate > 24) {
-        if (status !== 'CRITICAL') status = 'RISK';
-        reasons.push(`Inactive for >24h`);
-    }
-
-    // 3. Time vs Estimated
-    // Time spent in hours since block was assigned or created
-    const docCreatedAt = this.createdAt || new Date();
-    const startTime = this.assignmentHistory.length > 0 ? this.assignmentHistory[this.assignmentHistory.length - 1].assignedAt : docCreatedAt;
-    const timeSpent = (Date.now() - startTime.getTime()) / (1000 * 60 * 60);
-    
-    if (this.estimatedHours > 0 && this.status !== 'NOT_STARTED' && this.status !== 'COMPLETED') {
-        const ratio = timeSpent / this.estimatedHours;
-        if (ratio > 1.2) {
-            status = 'CRITICAL';
-            reasons.push(`Time spent (${timeSpent.toFixed(1)}h) is >120% of estimated (${this.estimatedHours}h)`);
-        } else if (ratio >= 0.8) {
-            if (status !== 'CRITICAL') status = 'RISK';
-            reasons.push(`Time spent (${timeSpent.toFixed(1)}h) is approaching estimated (${this.estimatedHours}h)`);
-        }
-    }
-
-    this.healthStatus = status;
-    this.healthReasons = reasons;
+    const health = workflowService.calculateHealth(this);
+    this.healthStatus = health.status;
+    this.healthReasons = health.reasons;
 };
 
 module.exports = mongoose.model('Block', BlockSchema);

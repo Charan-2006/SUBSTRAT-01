@@ -1,0 +1,312 @@
+/* ---- Core Layout ---- */
+.workflow-timeline-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-primary);
+}
+
+.timeline-top-controls {
+    padding: 16px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+    box-shadow: var(--shadow-sm);
+}
+
+.timeline-gantt-container {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: var(--surface);
+}
+
+.gantt-scroll-content {
+    position: relative;
+    min-width: 100%;
+    min-height: 100%;
+}
+
+/* ---- Row Structure ---- */
+.timeline-row {
+    display: flex;
+    height: 48px;
+    border-bottom: 1px solid var(--border-light);
+    width: max-content;
+}
+
+.timeline-row:hover .left-panel-cell,
+.timeline-row:hover .timeline-grid-cell {
+    background: var(--bg);
+}
+
+/* ---- Header specific ---- */
+.timeline-header-row {
+    display: flex;
+    height: 52px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    width: max-content;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.timeline-header-row .left-panel-cell {
+    z-index: 45;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 0;
+}
+
+/* ---- Left Panel Cell ---- */
+.left-panel-cell {
+    width: 260px;
+    flex-shrink: 0;
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    z-index: 30;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    justify-content: space-between;
+    box-shadow: 1px 0 2px rgba(0,0,0,0.02);
+}
+
+.block-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.block-assignee {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.status-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ---- Grid Cell ---- */
+.timeline-grid-cell {
+    position: relative;
+    height: 100%;
+}
+
+.timeline-grid-header-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.header-months-row {
+    display: flex;
+    height: 26px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.header-month-block {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    border-right: 1px solid var(--border-light);
+    box-sizing: border-box;
+}
+
+.header-days-row {
+    display: flex;
+    height: 26px;
+}
+
+.header-day-block {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--border-light);
+    box-sizing: border-box;
+}
+
+/* ---- Task Bars ---- */
+.task-bar {
+    position: absolute;
+    height: 28px;
+    border-radius: 6px;
+    top: 10px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0 10px;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+    z-index: 10;
+}
+
+.task-bar:hover {
+    transform: scaleY(1.05) scaleX(1.01);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 20;
+}
+
+.critical-segment {
+    border-left: 4px solid var(--red) !important;
+}
+
+/* ---- Segmented Control ---- */
+.segmented-control {
+    display: inline-flex;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--border);
+}
+
+.segment-btn {
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+.segment-btn.active {
+    background: var(--surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.segment-btn:hover:not(.active) {
+    background: var(--border-light);
+}
+
+/* ---- Global Overlays (Grid lines & Today) ---- */
+.global-grid-overlays {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.grid-line-vertical {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-light);
+}
+
+.today-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    z-index: 25;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.today-line::after {
+    content: "Today";
+    position: sticky;
+    top: 54px;
+    display: block;
+    width: 48px;
+    margin-left: -24px;
+    text-align: center;
+    background: var(--accent);
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 3px 0;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* ---- Right Insights Panel (Overlay) ---- */
+.timeline-insight-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 340px;
+    height: 100vh;
+    background: var(--surface);
+    box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: 1px solid var(--border);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.insight-content {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.sidebar-section {
+    margin-bottom: 32px;
+}
+
+.sidebar-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.detail-label {
+    color: var(--text-tertiary);
+}
+
+.detail-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}

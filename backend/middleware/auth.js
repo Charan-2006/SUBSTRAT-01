@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-exports.protect = async (req, res, proceed) => {
+exports.protect = async (req, res, next) => {
     let token;
 
     // Check for token in cookies or Authorization header
@@ -28,7 +28,7 @@ exports.protect = async (req, res, proceed) => {
              return res.status(401).json({ success: false, message: 'User not found' });
         }
 
-        proceed();
+        next();
     } catch (err) {
         return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
     }

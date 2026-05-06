@@ -7,7 +7,9 @@ const {
     reviewBlock,
     getBlockLogs,
     loadDemoData,
-    getAnalytics
+    resetDataset,
+    getAnalytics,
+    getGlobalLogs
 } = require('../controllers/blockController');
 
 const { protect } = require('../middleware/auth');
@@ -34,6 +36,10 @@ router.get('/analytics', getAnalytics);
 // @desc    Load demo data (Manager only)
 router.post('/demo', authorize('Manager'), loadDemoData);
 
+// @route   DELETE /api/blocks/reset
+// @desc    Reset all blocks and logs (Manager only)
+router.delete('/reset', authorize('Manager'), resetDataset);
+
 // @route   PUT /api/blocks/:id/assign
 // @desc    Assign engineer to a block (Manager only)
 router.put('/:id/assign', authorize('Manager'), assignEngineer);
@@ -49,5 +55,9 @@ router.put('/:id/review', authorize('Manager'), reviewBlock);
 // @route   GET /api/blocks/:id/logs
 // @desc    Get audit logs for a specific block
 router.get('/:id/logs', getBlockLogs);
+
+// @route   GET /api/blocks/logs/all
+// @desc    Get global audit logs (Manager only)
+router.get('/logs/all', authorize('Manager'), getGlobalLogs);
 
 module.exports = router;

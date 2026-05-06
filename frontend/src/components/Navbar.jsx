@@ -1,101 +1,149 @@
-import React, { useContext, useState, useRef, useEffect } from 'react';
+import React, { useContext, useState, useRef, useEffect, useMemo } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { NotificationContext } from '../context/NotificationContext';
+import { Search, Bell, Sun, Moon, LogOut, Layout, User as UserIcon, Activity } from 'lucide-react';
 import './Navbar.css';
 
-const Navbar = () => {
+const Navbar = ({ searchTerm, onSearchChange, blocks = [], engineers = [] }) => {
     const { user, logout } = useContext(AuthContext);
     const { theme, toggleTheme } = useContext(ThemeContext);
-    const { notifications, unreadCount, markAsRead, markAllAsRead } = useContext(NotificationContext);
+    const { unreadCount } = useContext(NotificationContext);
     
-    const [showNotifications, setShowNotifications] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
     const dropdownRef = useRef(null);
+
+    // Grouped search results
+    const results = useMemo(() => {
+        if (!searchTerm) return { blocks: [], engineers: [], stages: [] };
+        
+        const term = searchTerm.toLowerCase();
+        
+        const filteredBlocks = blocks.filter(b => b.name.toLowerCase().includes(term)).slice(0, 5);
+        const filteredEngineers = engineers.filter(e => e.displayName.toLowerCase().includes(term)).slice(0, 3);
+        const stages = ['DRC', 'LVS', 'REVIEW', 'IN_PROGRESS'].filter(s => s.toLowerCase().includes(term));
+
+        return { blocks: filteredBlocks, engineers: filteredEngineers, stages };
+    }, [searchTerm, blocks, engineers]);
+
+    const allResults = [...results.blocks, ...results.engineers, ...results.stages];
+
+    // Handle keyboard navigation
+    const handleKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex(prev => (prev < allResults.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex(prev => (prev > 0 ? prev - 1 : prev));
+        } else if (e.key === 'Enter' && activeIndex >= 0) {
+            // Logic to select result
+            console.log("Selected:", allResults[activeIndex]);
+            setShowDropdown(false);
+        } else if (e.key === 'Escape') {
+            setShowDropdown(false);
+        }
+    };
 
     // Close dropdown on click outside
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setShowNotifications(false);
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setShowDropdown(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleMarkRead = (id) => {
-        markAsRead(id);
-    };
-
-    const formatTime = (dateStr) => {
-        const date = new Date(dateStr);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
-
     return (
         <nav className="navbar">
-            <div className="navbar-brand">Analog Layout System</div>
-            <div className="navbar-user">
-                {user && (
-                    <>
-                        <div className="nav-actions">
-                            <button onClick={toggleTheme} className="nav-btn theme-toggle" title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
-                                {theme === 'light' ? (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                                    </svg>
-                                ) : (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                                    </svg>
-                                )}
-                            </button>
+            <div className="navbar-left">
+                <a href="/" className="navbar-brand">
+                    <Activity size={24} strokeWidth={3} />
+                    <span>SUBSTRAT</span>
+                </a>
+            </div>
 
-                            <div className="notification-wrapper" ref={dropdownRef}>
-                                <button className="nav-btn notification-bell" onClick={() => setShowNotifications(!showNotifications)}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                                    </svg>
-                                    {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-                                </button>
+            <div className="navbar-center" ref={dropdownRef}>
+                <div className="nav-search-container">
+                    <div className="nav-search-input-wrapper">
+                        <Search className="nav-search-icon" size={18} />
+                        <input 
+                            type="text" 
+                            className="nav-search-input"
+                            placeholder="Search blocks, engineers, stages..." 
+                            value={searchTerm || ''}
+                            onChange={(e) => {
+                                onSearchChange(e.target.value);
+                                setShowDropdown(true);
+                                setActiveIndex(-1);
+                            }}
+                            onFocus={() => setShowDropdown(true)}
+                            onKeyDown={handleKeyDown}
+                        />
+                    </div>
 
-                                {showNotifications && (
-                                    <div className="notification-dropdown">
-                                        <div className="notification-header">
-                                            <span>Notifications</span>
-                                            {unreadCount > 0 && <button onClick={markAllAsRead}>Mark all read</button>}
+                    {showDropdown && (results.blocks.length > 0 || results.engineers.length > 0 || results.stages.length > 0) && (
+                        <div className="search-dropdown">
+                            {results.blocks.length > 0 && (
+                                <div className="search-group">
+                                    <div className="search-group-title">Blocks</div>
+                                    {results.blocks.map((block, i) => (
+                                        <div key={block._id} className={`search-item ${allResults.indexOf(block) === activeIndex ? 'active' : ''}`}>
+                                            <div className="search-item-icon"><Layout size={14} /></div>
+                                            <div className="search-item-content">
+                                                <div className="search-item-title">{block.name}</div>
+                                                <div className="search-item-subtitle">{block.status}</div>
+                                            </div>
                                         </div>
-                                        <div className="notification-list">
-                                            {notifications.length === 0 ? (
-                                                <div className="notification-empty">No notifications</div>
-                                            ) : (
-                                                notifications.map(n => (
-                                                    <div 
-                                                        key={n._id} 
-                                                        className={`notification-item ${!n.read ? 'unread' : ''}`}
-                                                        onClick={() => handleMarkRead(n._id)}
-                                                    >
-                                                        <div className="n-item-header">
-                                                            <span className={`n-type type-${n.type}`}>{n.type}</span>
-                                                            <span className="n-time">{formatTime(n.createdAt)}</span>
-                                                        </div>
-                                                        <div className="n-message">{n.message}</div>
-                                                        {n.blockId && <div className="n-block">Block: {n.blockId.name}</div>}
-                                                    </div>
-                                                ))
-                                            )}
+                                    ))}
+                                </div>
+                            )}
+
+                            {results.engineers.length > 0 && (
+                                <div className="search-group">
+                                    <div className="search-group-title">Engineers</div>
+                                    {results.engineers.map((eng, i) => (
+                                        <div key={eng._id} className={`search-item ${allResults.indexOf(eng) === activeIndex ? 'active' : ''}`}>
+                                            <div className="search-item-icon"><UserIcon size={14} /></div>
+                                            <div className="search-item-content">
+                                                <div className="search-item-title">{eng.displayName}</div>
+                                                <div className="search-item-subtitle">Layout Engineer</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <span className="user-info">
-                            <img src={user.image} alt="avatar" className="avatar" />
-                            {user.displayName} ({user.role})
-                        </span>
-                        <button onClick={logout} className="logout-btn">Logout</button>
-                    </>
-                )}
+                    )}
+                </div>
+            </div>
+
+            <div className="navbar-right">
+                <div className="theme-toggle-container" onClick={toggleTheme}>
+                    <div className="theme-toggle-pill"></div>
+                    <div className="theme-toggle-icons">
+                        <div className={`theme-icon ${theme === 'light' ? 'active' : ''}`}>
+                            <Sun size={14} />
+                        </div>
+                        <div className={`theme-icon ${theme === 'dark' ? 'active' : ''}`}>
+                            <Moon size={14} />
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="nav-icon-btn" style={{ position: 'relative' }}>
+                    <Bell size={20} />
+                    {unreadCount > 0 && <span className="notification-dot">{unreadCount}</span>}
+                </div>
+                
+                <div className="nav-user-profile" onClick={logout}>
+                    <div className="nav-avatar">{user?.displayName?.[0] || 'U'}</div>
+                    <span className="nav-username">{user?.displayName || 'User'}</span>
+                    <LogOut size={14} style={{ marginLeft: 4, opacity: 0.6 }} />
+                </div>
             </div>
         </nav>
     );

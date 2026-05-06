@@ -1,0 +1,299 @@
+/* ============================================================
+   DocsTab.css — Lightweight Knowledge Base (Notion-lite)
+   ============================================================ */
+
+   .docs-container {
+    padding: 32px 48px;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    animation: fade-in 0.3s ease-out forwards;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* --- Header Section --- */
+.docs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.docs-title h2 {
+    margin: 0 0 4px 0;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+}
+
+.docs-title p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-tertiary);
+}
+
+.docs-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.docs-search-wrapper {
+    position: relative;
+    width: 240px;
+}
+
+.docs-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    pointer-events: none;
+}
+
+.docs-search-input {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.docs-search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.docs-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.docs-btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.docs-btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.docs-btn-secondary {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+
+.docs-btn-secondary:hover {
+    background: var(--bg);
+    color: var(--text-primary);
+}
+
+.docs-btn-ghost {
+    background: transparent;
+    color: var(--text-tertiary);
+}
+
+.docs-btn-ghost:hover {
+    background: var(--surface);
+    color: var(--text-primary);
+}
+
+/* --- Docs List Grid --- */
+.docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.doc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    height: 140px;
+}
+
+.doc-card:hover {
+    border-color: var(--border-light);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.doc-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.doc-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.doc-card-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--text-secondary);
+}
+
+.doc-card-tag.design { background: var(--purple-bg); color: var(--purple-text); }
+.doc-card-tag.guidelines { background: var(--green-bg); color: var(--green-text); }
+.doc-card-tag.notes { background: var(--amber-bg); color: var(--amber-text); }
+
+.doc-card-excerpt {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0 0 auto 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.doc-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 12px;
+}
+
+/* --- Document Editor --- */
+.doc-editor-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 180px);
+    overflow: hidden;
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.doc-editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+}
+
+.doc-editor-breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.doc-editor-title-input {
+    width: 100%;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 32px 48px 16px 48px;
+}
+
+.doc-editor-title-input::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.5;
+}
+
+.doc-editor-content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 48px 48px 48px;
+}
+
+.doc-editor-textarea {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    border: none;
+    outline: none;
+    background: transparent;
+    resize: none;
+    font-family: var(--lp-font), inherit;
+}
+
+.doc-editor-textarea::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.5;
+}
+
+/* Formatting toolbar (simple) */
+.doc-format-bar {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: var(--shadow-sm);
+}
+
+.format-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.format-btn:hover {
+    background: var(--bg);
+    color: var(--text-primary);
+}

@@ -14,7 +14,7 @@ const Login = () => {
     }
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:5000/api/auth/google';
+        window.location.href = 'http://localhost:5001/api/auth/google';
     };
 
     return (
@@ -26,25 +26,25 @@ const Login = () => {
             <div className="login-right">
                 <div className="login-card">
                     <div className="brand">
-                        <span className="dot"></span>
-                        Analog Layout
+                        <div className="sidebar-logo">S</div>
+                        SUBSTRAT
                     </div>
                     
-                    <h1 className="login-title">Analog Layout Workflow System</h1>
-                    <p className="login-subtitle">Track and manage analog layout blocks from design to signoff.</p>
+                    <h1 className="login-title">Layout Workflow Automation</h1>
+                    <p className="login-subtitle">A professional platform for tracking analog layout blocks from design to final signoff.</p>
                     
                     <div className="features">
                         <div className="feature-item">
                             <span className="feature-dot"></span>
-                            Block lifecycle tracking
+                            Full block lifecycle tracking
                         </div>
                         <div className="feature-item">
                             <span className="feature-dot"></span>
-                            Health monitoring
+                            Proactive health monitoring
                         </div>
                         <div className="feature-item">
                             <span className="feature-dot"></span>
-                            Bottleneck detection
+                            Automated bottleneck detection
                         </div>
                     </div>
 

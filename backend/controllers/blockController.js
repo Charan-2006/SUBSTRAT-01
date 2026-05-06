@@ -1,11 +1,12 @@
 const Block = require('../models/Block');
 const { logAction } = require('../utils/logger');
 const { createNotification } = require('../utils/notifier');
+const workflowService = require('../services/workflowService');
 
 // @desc    Create a new block
 // @route   POST /api/blocks
 // @access  Private (Manager only)
-exports.createBlock = async (req, res) => {
+exports.createBlock = async (req, res, next) => {
     try {
         // Add createdBy from logged in user
         req.body.createdBy = req.user.id;
@@ -23,14 +24,14 @@ exports.createBlock = async (req, res) => {
 
         res.status(201).json({ success: true, data: block });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        next(error);
     }
 };
 
 // @desc    Get blocks
 // @route   GET /api/blocks
 // @access  Private
-exports.getBlocks = async (req, res) => {
+exports.getBlocks = async (req, res, next) => {
     try {
         let query;
 
@@ -44,12 +45,10 @@ exports.getBlocks = async (req, res) => {
         const blocks = await query;
 
         // Calculate health dynamically and sort
-        const updatedBlocks = await Promise.all(blocks.map(async (block) => {
+        const updatedBlocks = blocks.map((block) => {
             block.calculateHealth();
-            // Optional: Save it back so DB is updated
-            await block.save();
             return block;
-        }));
+        });
 
         // Sort: CRITICAL -> RISK -> HEALTHY
         const severityMap = { 'CRITICAL': 3, 'RISK': 2, 'HEALTHY': 1 };
@@ -57,14 +56,14 @@ exports.getBlocks = async (req, res) => {
 
         res.status(200).json({ success: true, count: updatedBlocks.length, data: updatedBlocks });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        next(error);
     }
 };
 
 // @desc    Assign engineer to a block
 // @route   PUT /api/blocks/:id/assign
 // @access  Private (Manager only)
-exports.assignEngineer = async (req, res) => {
+exports.assignEngineer = async (req, res, next) => {
     try {
         const { engineerId } = req.body;
         
@@ -117,14 +116,14 @@ exports.assignEngineer = async (req, res) => {
 
         res.status(200).json({ success: true, data: block });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        next(error);
     }
 };
 
 // @desc    Update block status
 // @route   PUT /api/blocks/:id/status
 // @access  Private (Engineer only)
-exports.updateStatus = async (req, res) => {
+exports.updateStatus = async (req, res, next) => {
     try {
         const { status } = req.body;
         let block = await Block.findById(req.params.id);
@@ -138,20 +137,9 @@ exports.updateStatus = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Not authorized to update this block' });
         }
 
-        const workflowOrder = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
-        const currentIndex = workflowOrder.indexOf(block.status);
-        const newIndex = workflowOrder.indexOf(status);
-
-        if (newIndex === -1) {
-             return res.status(400).json({ success: false, message: 'Invalid status' });
-        }
-
-        // Cannot skip stages and cannot go backwards unless rejected (which is handled by Manager)
-        if (newIndex !== currentIndex + 1) {
-             return res.status(400).json({ 
-                 success: false, 
-                 message: `Invalid status transition. You must move from ${block.status} to ${workflowOrder[currentIndex + 1] || 'None'}` 
-             });
+        const validation = workflowService.validateTransition(block.status, status);
+        if (!validation.valid) {
+            return res.status(400).json({ success: false, message: validation.message });
         }
 
         // Engineer cannot move to COMPLETED directly
@@ -160,7 +148,24 @@ exports.updateStatus = async (req, res) => {
         }
 
         const previousStatus = block.status;
+        const now = new Date();
+
+        // Close current stage time
+        const stageDurationHours = (now - block.stageStartTime) / (1000 * 60 * 60);
+        block.stageHistory.push({
+            stage: previousStatus,
+            startTime: block.stageStartTime,
+            endTime: now,
+            durationHours: stageDurationHours
+        });
+
+        // Update total time
+        block.totalTimeSpent = (block.totalTimeSpent || 0) + stageDurationHours;
+
+        // Start next stage
         block.status = status;
+        block.stageStartTime = now;
+        
         await block.save();
 
         // If moved to REVIEW, notify the manager who created it
@@ -185,14 +190,14 @@ exports.updateStatus = async (req, res) => {
 
         res.status(200).json({ success: true, data: block });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        next(error);
     }
 };
 
 // @desc    Approve or reject a block
 // @route   PUT /api/blocks/:id/review
 // @access  Private (Manager only)
-exports.reviewBlock = async (req, res) => {
+exports.reviewBlock = async (req, res, next) => {
     try {
         const { action, rejectionReason } = req.body; // action can be 'APPROVE' or 'REJECT'
         
@@ -207,9 +212,21 @@ exports.reviewBlock = async (req, res) => {
         }
 
         const previousStatus = block.status;
+        const now = new Date();
+
+        // Close current stage (REVIEW)
+        const stageDurationHours = (now - block.stageStartTime) / (1000 * 60 * 60);
+        block.stageHistory.push({
+            stage: previousStatus,
+            startTime: block.stageStartTime,
+            endTime: now,
+            durationHours: stageDurationHours
+        });
+        block.totalTimeSpent = (block.totalTimeSpent || 0) + stageDurationHours;
 
         if (action === 'APPROVE') {
             block.status = 'COMPLETED';
+            block.stageStartTime = now;
             await block.save();
 
             // Notify engineer
@@ -235,7 +252,13 @@ exports.reviewBlock = async (req, res) => {
                 return res.status(400).json({ success: false, message: 'rejectionReason is required when rejecting a block' });
             }
             
-            block.status = 'IN_PROGRESS';
+            // Rejection moves back to PREVIOUS stage
+            const workflowOrder = workflowService.WORKFLOW_ORDER;
+            const currentIndex = workflowOrder.indexOf(previousStatus);
+            const prevStatus = workflowOrder[currentIndex - 1] || 'IN_PROGRESS';
+
+            block.status = prevStatus;
+            block.stageStartTime = now;
             block.rejectionReason = rejectionReason;
             block.rejectionCount = (block.rejectionCount || 0) + 1;
             await block.save();
@@ -254,8 +277,8 @@ exports.reviewBlock = async (req, res) => {
                 action: 'REJECT',
                 blockId: block._id,
                 previousValue: previousStatus,
-                newValue: 'IN_PROGRESS',
-                message: `Block rejected. Reason: ${rejectionReason}`
+                newValue: prevStatus,
+                message: `Block rejected. Moved back to ${prevStatus}. Reason: ${rejectionReason}`
             });
 
         } else {
@@ -264,14 +287,14 @@ exports.reviewBlock = async (req, res) => {
 
         res.status(200).json({ success: true, data: block });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        next(error);
     }
 };
 
 // @desc    Get audit logs for a specific block
 // @route   GET /api/blocks/:id/logs
 // @access  Private
-exports.getBlockLogs = async (req, res) => {
+exports.getBlockLogs = async (req, res, next) => {
     try {
         const AuditLog = require('../models/AuditLog');
         
@@ -309,58 +332,40 @@ exports.getBlockLogs = async (req, res) => {
             data: logs 
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        next(error);
     }
 };
 
 // @desc    Calculate system analytics (e.g. bottlenecks)
 // @route   GET /api/blocks/analytics
 // @access  Private
-exports.getAnalytics = async (req, res) => {
+exports.getAnalytics = async (req, res, next) => {
     try {
-        const AuditLog = require('../models/AuditLog');
+        const blocks = await Block.find();
         
-        // Find all status update logs
-        const logs = await AuditLog.find({ action: 'STATUS_UPDATE' }).sort({ blockId: 1, timestamp: 1 });
-        
-        const stageTimes = {
-            'NOT_STARTED': { totalHours: 0, count: 0 },
-            'IN_PROGRESS': { totalHours: 0, count: 0 },
-            'DRC': { totalHours: 0, count: 0 },
-            'LVS': { totalHours: 0, count: 0 },
-            'REVIEW': { totalHours: 0, count: 0 }
-        };
-
-        // Group logs by blockId to calculate time spent in each stage
-        const logsByBlock = {};
-        logs.forEach(log => {
-            if (!logsByBlock[log.blockId]) logsByBlock[log.blockId] = [];
-            logsByBlock[log.blockId].push(log);
+        const stageStats = {};
+        workflowService.WORKFLOW_ORDER.forEach(stage => {
+            if (stage !== 'COMPLETED' && stage !== 'NOT_STARTED') {
+                stageStats[stage] = { totalHours: 0, count: 0 };
+            }
         });
 
-        for (const blockId in logsByBlock) {
-            const blockLogs = logsByBlock[blockId];
-            for (let i = 0; i < blockLogs.length - 1; i++) {
-                const currentLog = blockLogs[i];
-                const nextLog = blockLogs[i + 1];
-                
-                const timeDiffHours = (nextLog.timestamp - currentLog.timestamp) / (1000 * 60 * 60);
-                const stage = currentLog.newValue; // The stage it entered
-                
-                if (stageTimes[stage]) {
-                    stageTimes[stage].totalHours += timeDiffHours;
-                    stageTimes[stage].count += 1;
+        blocks.forEach(block => {
+            block.stageHistory.forEach(history => {
+                if (stageStats[history.stage]) {
+                    stageStats[history.stage].totalHours += (history.durationHours || 0);
+                    stageStats[history.stage].count += 1;
                 }
-            }
-        }
+            });
+        });
 
         let bottleneckStage = null;
         let maxAvg = 0;
-
         const analytics = {};
-        for (const stage in stageTimes) {
-            const avg = stageTimes[stage].count > 0 ? stageTimes[stage].totalHours / stageTimes[stage].count : 0;
-            analytics[stage] = { avgHours: avg, count: stageTimes[stage].count };
+
+        for (const stage in stageStats) {
+            const avg = stageStats[stage].count > 0 ? stageStats[stage].totalHours / stageStats[stage].count : 0;
+            analytics[stage] = { avgHours: parseFloat(avg.toFixed(2)), count: stageStats[stage].count };
             
             if (avg > maxAvg) {
                 maxAvg = avg;
@@ -370,162 +375,253 @@ exports.getAnalytics = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            bottleneckStage,
-            maxAvgHours: maxAvg,
+            bottleneckStage: maxAvg > 0 ? bottleneckStage : 'NONE',
+            maxAvgHours: parseFloat(maxAvg.toFixed(2)),
             stageAnalytics: analytics
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        next(error);
+    }
+};
+
+// @desc    Reset all blocks and logs
+// @route   DELETE /api/blocks/reset
+// @access  Private (Manager only)
+exports.resetDataset = async (req, res, next) => {
+    try {
+        const AuditLog = require('../models/AuditLog');
+        await Block.deleteMany({});
+        await AuditLog.deleteMany({});
+        
+        // Optionally reload fresh demo data automatically
+        // await exports.loadDemoData(req, res); 
+        
+        res.status(200).json({ success: true, message: 'Dataset reset successfully' });
+    } catch (error) {
+        next(error);
     }
 };
 
 // @desc    Load demo data
 // @route   POST /api/blocks/demo
 // @access  Private (Manager only)
-exports.loadDemoData = async (req, res) => {
+exports.loadDemoData = async (req, res, next) => {
     try {
         const AuditLog = require('../models/AuditLog');
+        const User = require('../models/User');
         
         // 1. Wipe existing data
         await Block.deleteMany({});
         await AuditLog.deleteMany({});
 
-        // 2. Create demo blocks
-        const demoBlocks = [];
-        const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000;
+        // 2. Get users for assignment
+        const engineers = await User.find({ role: 'Engineer' });
+        const manager = await User.findOne({ role: 'Manager' });
+        const creatorId = manager ? manager._id : req.user.id;
+
+        // Specific distribution as requested (Total: 8 blocks)
+        const distribution = [
+            { status: 'NOT_STARTED', count: 1 },
+            { status: 'IN_PROGRESS', count: 2 },
+            { status: 'DRC', count: 2 },
+            { status: 'LVS', count: 1 },
+            { status: 'REVIEW', count: 1 },
+            { status: 'COMPLETED', count: 1 }
+        ];
+
+        // Define target health distribution for the 8 blocks
+        // We'll map these to the blocks as we generate them
+        const targetHealths = [
+            'HEALTHY', 'HEALTHY', 'HEALTHY', 'HEALTHY', 
+            'AT_RISK', 'AT_RISK', 
+            'CRITICAL', 'CRITICAL'
+        ];
         
-        // Block 1: Healthy, newly created
-        demoBlocks.push({
-            name: 'ALU_Core_Top', type: 'Core', techNode: '7nm', complexity: 'MEDIUM', baseHours: 40,
-            status: 'IN_PROGRESS', createdBy: req.user.id, assignedEngineer: req.user.id,
-            rejectionCount: 0, createdAt: new Date(now - oneDay * 0.5), updatedAt: new Date(now - oneDay * 0.1),
-            assignmentHistory: [{ engineer: req.user.id, assignedAt: new Date(now - oneDay * 0.5) }]
-        });
+        // Shuffle targets to randomize which status gets which health
+        for (let i = targetHealths.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [targetHealths[i], targetHealths[j]] = [targetHealths[j], targetHealths[i]];
+        }
 
-        // Block 2: Risk (inactive for > 24h)
-        demoBlocks.push({
-            name: 'PLL_Freq_Synth', type: 'Analog', techNode: '5nm', complexity: 'COMPLEX', baseHours: 80,
-            status: 'DRC', createdBy: req.user.id, assignedEngineer: req.user.id,
-            rejectionCount: 0, createdAt: new Date(now - oneDay * 5), updatedAt: new Date(now - oneDay * 2), // 48h inactive -> RISK/CRITICAL
-            assignmentHistory: [{ engineer: req.user.id, assignedAt: new Date(now - oneDay * 5) }]
-        });
+        const blockNames = [
+            'Bandgap_Ref', 'LDO_Regulator', 'PLL_Core', 'SRAM_Array', 
+            'ADC_SAR', 'DAC_IDAC', 'Bias_Gen', 'Level_Shifter',
+            'Input_Buffer', 'Output_Stage', 'Charge_Pump', 'POR_Circuit'
+        ];
 
-        // Block 3: Critical (time spent > 120%)
-        demoBlocks.push({
-            name: 'LDO_Regulator_v2', type: 'Power', techNode: '12nm', complexity: 'SIMPLE', baseHours: 10,
-            status: 'LVS', createdBy: req.user.id, assignedEngineer: req.user.id,
-            rejectionCount: 1, createdAt: new Date(now - oneDay * 14), updatedAt: new Date(now - oneDay * 0.5),
-            assignmentHistory: [{ engineer: req.user.id, assignedAt: new Date(now - oneDay * 14) }] // 14 days for a 10h task!
-        });
+        const workflow = workflowService.WORKFLOW_ORDER;
+        const now = new Date();
+        const hour = 60 * 60 * 1000;
+        const day = 24 * hour;
 
-        // Block 4: Critical (2+ rejections)
-        demoBlocks.push({
-            name: 'Bandgap_Ref', type: 'Analog', techNode: '5nm', complexity: 'MEDIUM', baseHours: 20,
-            status: 'IN_PROGRESS', createdBy: req.user.id, assignedEngineer: req.user.id,
-            rejectionCount: 3, rejectionReason: 'Failed EMIR checks repeatedly.',
-            createdAt: new Date(now - oneDay * 3), updatedAt: new Date(now - oneDay * 0.2),
-            assignmentHistory: [{ engineer: req.user.id, assignedAt: new Date(now - oneDay * 3) }]
-        });
+        let nameIdx = 0;
+        for (const item of distribution) {
+            for (let c = 0; c < item.count; c++) {
+                const name = blockNames[nameIdx % blockNames.length];
+                const targetHealth = targetHealths[nameIdx]; // Assign one of our balanced targets
+                nameIdx++;
 
-        // Block 5: Healthy, completed
-        demoBlocks.push({
-            name: 'SRAM_Macro_1MB', type: 'Memory', techNode: '7nm', complexity: 'CRITICAL', baseHours: 120,
-            status: 'COMPLETED', createdBy: req.user.id, assignedEngineer: req.user.id,
-            rejectionCount: 0, createdAt: new Date(now - oneDay * 20), updatedAt: new Date(now - oneDay * 2),
-            assignmentHistory: [{ engineer: req.user.id, assignedAt: new Date(now - oneDay * 20) }]
-        });
+                const complexity = ['SIMPLE', 'MEDIUM', 'COMPLEX'][Math.floor(Math.random() * 3)];
+                const techNode = ['12nm', '7nm', '28nm'][Math.floor(Math.random() * 3)];
+                const estimatedHours = workflowService.calculateEstimation(complexity, techNode);
+                
+                const statusIndex = workflow.indexOf(item.status);
+                const assignedEng = engineers.length > 0 ? engineers[nameIdx % engineers.length] : null;
 
-        // Block 6: Healthy, Review
-        demoBlocks.push({
-            name: 'ADC_12bit', type: 'Mixed-Signal', techNode: '5nm', complexity: 'COMPLEX', baseHours: 100,
-            status: 'REVIEW', createdBy: req.user.id, assignedEngineer: req.user.id,
-            rejectionCount: 0, createdAt: new Date(now - oneDay * 4), updatedAt: new Date(now - oneDay * 0.1),
-            assignmentHistory: [{ engineer: req.user.id, assignedAt: new Date(now - oneDay * 4) }]
-        });
+                // Determine rejectionCount based on target health
+                let rejectionCount = 0;
+                if (targetHealth === 'AT_RISK') rejectionCount = Math.random() > 0.5 ? 1 : 0;
+                if (targetHealth === 'CRITICAL') rejectionCount = Math.random() > 0.5 ? 2 : 1;
 
-        // Block 7: Not Started
-        demoBlocks.push({
-            name: 'DAC_10bit', type: 'Mixed-Signal', techNode: '5nm', complexity: 'MEDIUM', baseHours: 40,
-            status: 'NOT_STARTED', createdBy: req.user.id, 
-            rejectionCount: 0, createdAt: new Date(now - oneDay * 1), updatedAt: new Date(now - oneDay * 1)
-        });
-        
-        // Block 8: Risk (1 rejection)
-        demoBlocks.push({
-            name: 'Temp_Sensor', type: 'Analog', techNode: '12nm', complexity: 'SIMPLE', baseHours: 15,
-            status: 'IN_PROGRESS', createdBy: req.user.id, assignedEngineer: req.user.id,
-            rejectionCount: 1, rejectionReason: 'Missed top level routing tracks.',
-            createdAt: new Date(now - oneDay * 2), updatedAt: new Date(now - oneDay * 0.5),
-            assignmentHistory: [{ engineer: req.user.id, assignedAt: new Date(now - oneDay * 2) }]
-        });
+                // Special case: NOT_STARTED and COMPLETED are usually healthy in logic, 
+                // but let's keep the rejections for history if target was critical
+                if (item.status === 'NOT_STARTED') rejectionCount = 0;
 
-        const createdBlocks = await Block.insertMany(demoBlocks);
-        
-        // Calculate health dynamically and save
-        await Promise.all(createdBlocks.map(async (block) => {
-            try {
-                const b = await Block.findById(block._id);
-                if (b) {
-                    b.calculateHealth();
-                    await b.save();
+                let block = new Block({
+                    name,
+                    complexity,
+                    techNode,
+                    status: item.status,
+                    createdBy: creatorId,
+                    assignedEngineer: item.status !== 'NOT_STARTED' ? (assignedEng ? assignedEng._id : null) : null,
+                    rejectionCount: rejectionCount,
+                    estimatedHours: estimatedHours,
+                    stageHistory: [],
+                    totalTimeSpent: 0
+                });
+
+                // Simulate time per stage
+                // Start history 15 days ago to keep it compact
+                let currentTime = new Date(now.getTime() - (15 * day)); 
+                
+                for (let i = 0; i <= statusIndex; i++) {
+                    const stage = workflow[i];
                     
-                    // Add a fake log to make timeline look populated
-                    await AuditLog.create({
-                        userId: req.user.id,
-                        userRole: req.user.role,
-                        action: 'CREATE',
-                        blockId: b._id,
-                        newValue: b.name,
-                        message: `Block created automatically via Demo Generator.`,
-                        timestamp: b.createdAt
-                    });
-
-                    // If it has status beyond NOT_STARTED, add some fake transition logs to feed the analytics
-                    if (b.status !== 'NOT_STARTED') {
+                    if (stage === 'COMPLETED' && i === statusIndex) {
                          await AuditLog.create({
-                            userId: req.user.id,
-                            userRole: req.user.role,
-                            action: 'STATUS_UPDATE',
-                            blockId: b._id,
-                            previousValue: 'NOT_STARTED',
-                            newValue: 'IN_PROGRESS',
-                            message: `Status updated to IN_PROGRESS.`,
-                            timestamp: new Date(b.createdAt.getTime() + (oneDay * 0.1))
+                            userId: creatorId,
+                            userRole: 'Manager',
+                            action: 'APPROVE',
+                            blockId: block._id,
+                            previousValue: 'REVIEW',
+                            newValue: 'COMPLETED',
+                            message: `Block approved by manager.`,
+                            timestamp: currentTime
                         });
+                        continue;
                     }
-                    if (b.status === 'LVS' || b.status === 'REVIEW' || b.status === 'COMPLETED') {
-                         // Fake bottleneck in DRC
-                         await AuditLog.create({
-                            userId: req.user.id,
-                            userRole: req.user.role,
-                            action: 'STATUS_UPDATE',
-                            blockId: b._id,
-                            previousValue: 'IN_PROGRESS',
-                            newValue: 'DRC',
-                            message: `Status updated to DRC.`,
-                            timestamp: new Date(b.createdAt.getTime() + (oneDay * 0.2))
+
+                    // Base time distribution per stage (Total should sum to ~1.0 roughly)
+                    let baseMultiplier = 0.2; 
+                    if (stage === 'IN_PROGRESS') baseMultiplier = 0.25;
+                    if (stage === 'DRC') baseMultiplier = 0.4; // DRC is the bottleneck
+                    if (stage === 'LVS') baseMultiplier = 0.2;
+                    if (stage === 'REVIEW') baseMultiplier = 0.15;
+
+                    // Calculate Jitter to meet health target in the ACTIVE stage
+                    let jitter = 0.85; // Default: slightly faster than expected
+                    
+                    if (i === statusIndex) {
+                        // Current active stage - this is where health is calculated
+                        if (targetHealth === 'HEALTHY') jitter = 0.7 + Math.random() * 0.25; // 70% to 95%
+                        if (targetHealth === 'AT_RISK') {
+                            // 10-40% above expected
+                            jitter = 1.1 + Math.random() * 0.3; 
+                        }
+                        if (targetHealth === 'CRITICAL') {
+                            // 50-100% above expected
+                            jitter = 1.5 + Math.random() * 0.5;
+                        }
+                    } else {
+                        // Historical stages - keep them mostly realistic/healthy
+                        jitter = 0.8 + Math.random() * 0.2; // 80% to 100%
+                    }
+
+                    const duration = Math.round(estimatedHours * baseMultiplier * jitter);
+                    const startTime = new Date(currentTime);
+                    const endTime = new Date(currentTime.getTime() + (duration * hour));
+                    
+                    if (i < statusIndex) {
+                        block.stageHistory.push({
+                            stage,
+                            startTime,
+                            endTime,
+                            durationHours: duration
                         });
+                        block.totalTimeSpent += duration;
+                        
                         await AuditLog.create({
-                            userId: req.user.id,
-                            userRole: req.user.role,
+                            userId: assignedEng ? assignedEng._id : creatorId,
+                            userRole: assignedEng ? 'Engineer' : 'Manager',
                             action: 'STATUS_UPDATE',
-                            blockId: b._id,
-                            previousValue: 'DRC',
-                            newValue: 'LVS',
-                            message: `Status updated to LVS.`,
-                            timestamp: new Date(b.createdAt.getTime() + (oneDay * 2.5)) // 2.3 days in DRC
+                            blockId: block._id,
+                            previousValue: workflow[i-1] || 'NONE',
+                            newValue: stage,
+                            message: `Stage ${stage} finished.`,
+                            timestamp: startTime
+                        });
+
+                        currentTime = endTime;
+                    } else {
+                        // Active stage
+                        block.stageStartTime = startTime;
+                        await AuditLog.create({
+                            userId: assignedEng ? assignedEng._id : creatorId,
+                            userRole: assignedEng ? 'Engineer' : 'Manager',
+                            action: 'STATUS_UPDATE',
+                            blockId: block._id,
+                            previousValue: workflow[i-1] || 'NONE',
+                            newValue: stage,
+                            message: `Work started on ${stage}.`,
+                            timestamp: startTime
                         });
                     }
                 }
-            } catch (err) {
-                console.error(`Failed to process demo block ${block._id}:`, err);
-            }
-        }));
 
-        res.status(200).json({ success: true, message: 'Demo data loaded successfully' });
+                // Apply rejections if any
+                if (block.rejectionCount > 0 && block.stageStartTime) {
+                    block.rejectionReason = "Timing violations detected in routing tracks.";
+                    for (let r = 0; r < block.rejectionCount; r++) {
+                        await AuditLog.create({
+                            userId: creatorId,
+                            userRole: 'Manager',
+                            action: 'REJECT',
+                            blockId: block._id,
+                            previousValue: 'REVIEW',
+                            newValue: 'LVS',
+                            message: `Review rejected (Iteration #${r+1}).`,
+                            timestamp: new Date(block.stageStartTime.getTime() - (r + 1) * hour)
+                        });
+                    }
+                }
+
+                block.calculateHealth();
+                await block.save();
+            }
+        }
+
+        res.status(200).json({ success: true, message: 'Realistic demo data loaded successfully' });
     } catch (error) {
-        console.error("Critical error in loadDemoData:", error);
-        res.status(500).json({ success: false, message: 'Failed to load demo data: ' + error.message });
+        next(error);
+    }
+};
+// @desc    Get global audit logs
+// @route   GET /api/blocks/logs/all
+// @access  Private (Manager only)
+exports.getGlobalLogs = async (req, res, next) => {
+    try {
+        const AuditLog = require('../models/AuditLog');
+        const logs = await AuditLog.find({})
+            .populate('userId', 'displayName email role')
+            .populate('blockId', 'name')
+            .sort({ timestamp: -1 })
+            .limit(100);
+
+        res.status(200).json({
+            success: true,
+            data: logs
+        });
+    } catch (error) {
+        next(error);
     }
 };

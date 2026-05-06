@@ -13,13 +13,18 @@ const WORKFLOW_STAGES = [
 const Sidebar = ({
     blocks = [],
     analytics,
+    requests = [],
     healthFilter,
     stageFilter,
     setFilter,
     clearFilters,
-    onNewBlock,
-    onLoadDemo,
+    onNewBlock = () => {},
+    onViewLogs = () => {},
+    onLoadDemo = () => {},
+    onResetDataset = () => {},
     isManager,
+    isCollapsed,
+    onToggleCollapse,
 }) => {
     // Compute counts from raw blocks
     const counts = {
@@ -27,6 +32,7 @@ const Sidebar = ({
         healthy: blocks.filter(b => b.healthStatus === 'HEALTHY').length,
         risk: blocks.filter(b => b.healthStatus === 'RISK').length,
         critical: blocks.filter(b => b.healthStatus === 'CRITICAL').length,
+        pendingRequests: requests.filter(r => r.status === 'PENDING').length
     };
 
     const stageCounts = {};
@@ -38,41 +44,53 @@ const Sidebar = ({
 
     return (
         <aside className="sidebar">
-            {/* Brand */}
+            {/* Brand Section */}
             <div className="sidebar-brand">
-                <span className="sidebar-logo">◆</span>
-                <span>Analog Layout</span>
+                <div className="sidebar-logo">S</div>
+                {!isCollapsed && <span>SUBSTRAT</span>}
+                <button 
+                    onClick={onToggleCollapse}
+                    style={{
+                        marginLeft: isCollapsed ? 0 : 'auto',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-tertiary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 24,
+                        height: 24,
+                        borderRadius: 4
+                    }}
+                >
+                    {isCollapsed ? '→' : '←'}
+                </button>
             </div>
 
             <div className="sidebar-scroll">
-                {/* Quick Actions */}
-                {isManager && (
-                    <div className="sidebar-section">
-                        <div className="sidebar-section-label">Actions</div>
-                        <button className="sidebar-action" onClick={onNewBlock}>
-                            <span className="sidebar-action-icon">+</span>
-                            New Block
-                        </button>
-                        <button className="sidebar-action sidebar-action--muted" onClick={onLoadDemo}>
-                            <span className="sidebar-action-icon">↻</span>
-                            Load Demo Data
-                        </button>
-                    </div>
-                )}
-
-                {/* Health Filters */}
+                {/* Workspace Section */}
                 <div className="sidebar-section">
-                    <div className="sidebar-section-label">Filter</div>
-
+                    <div className="sidebar-section-label">Workspace</div>
                     <button
                         className={`sidebar-filter-item ${isAllActive ? 'sidebar-filter-item--active' : ''}`}
                         onClick={clearFilters}
                     >
-                        <span className="sidebar-filter-dot sidebar-filter-dot--all"></span>
+                        <span className="sidebar-stage-marker"></span>
                         <span>All Blocks</span>
                         <span className="sidebar-filter-count">{counts.total}</span>
                     </button>
+                    {isManager && (
+                        <button className="sidebar-filter-item" onClick={onViewLogs}>
+                            <span className="sidebar-stage-marker"></span>
+                            <span>Audit Trail</span>
+                        </button>
+                    )}
+                </div>
 
+                {/* Filters Section */}
+                <div className="sidebar-section">
+                    <div className="sidebar-section-label">Filters</div>
                     <button
                         className={`sidebar-filter-item ${healthFilter === 'CRITICAL' ? 'sidebar-filter-item--active' : ''}`}
                         onClick={() => setFilter('health', 'CRITICAL')}
@@ -101,7 +119,7 @@ const Sidebar = ({
                     </button>
                 </div>
 
-                {/* Workflow Stages */}
+                {/* Workflow Section */}
                 <div className="sidebar-section">
                     <div className="sidebar-section-label">Workflow</div>
                     {WORKFLOW_STAGES.map(stage => (
@@ -120,18 +138,50 @@ const Sidebar = ({
                 {/* Insights */}
                 {analytics?.bottleneckStage && (
                     <div className="sidebar-section">
-                        <div className="sidebar-section-label">Insight</div>
-                        <button
-                            className="sidebar-insight"
-                            onClick={() => setFilter('stage', analytics.bottleneckStage)}
-                        >
-                            <div className="sidebar-insight-icon">⚠</div>
-                            <div className="sidebar-insight-body">
-                                <div className="sidebar-insight-title">Bottleneck</div>
-                                <div className="sidebar-insight-text">
-                                    {analytics.bottleneckStage} — avg {analytics.maxAvgHours?.toFixed(1)}h
-                                </div>
+                        <div className="sidebar-section-label">Insights</div>
+                        <div className="sidebar-insight">
+                            <div className="sidebar-insight-title">Bottleneck Detected</div>
+                            <div className="sidebar-insight-text">
+                                {analytics.bottleneckStage} — avg {analytics.maxAvgHours?.toFixed(1)}h
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Requests Indicator */}
+                {counts.pendingRequests > 0 && (
+                    <div className="sidebar-section">
+                        <div className="sidebar-section-label">Intake</div>
+                        <div className="sidebar-insight" style={{ background: 'var(--accent-subtle)', borderColor: 'var(--accent)', cursor: 'pointer' }}>
+                            <div className="sidebar-insight-title" style={{ color: 'var(--accent)' }}>Requests</div>
+                            <div className="sidebar-insight-text" style={{ color: 'var(--accent)' }}>
+                                {counts.pendingRequests} pending {counts.pendingRequests === 1 ? 'request' : 'requests'}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Actions Section */}
+                {isManager && (
+                    <div className="sidebar-section" style={{ marginTop: 'auto', paddingTop: 24 }}>
+                        <div className="sidebar-section-label">Management</div>
+                        <button className="sidebar-action" onClick={() => {
+                            console.log('[UI Event] Click Create Block in Sidebar');
+                            onNewBlock();
+                        }}>
+                            + Create Block
+                        </button>
+                        <button className="sidebar-action sidebar-action--muted" onClick={() => {
+                            console.log('[UI Event] Click Load Demo Data');
+                            onLoadDemo();
+                        }}>
+                            Load Demo Data
+                        </button>
+                        <button className="sidebar-action sidebar-action--danger" onClick={() => {
+                            console.log('[UI Event] Click Reset Dataset');
+                            onResetDataset();
+                        }}>
+                            Reset Dataset
                         </button>
                     </div>
                 )}

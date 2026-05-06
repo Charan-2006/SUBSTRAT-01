@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
+import BlockDocsPanel from './BlockDocsPanel';
 import './TimelinePanel.css';
 
 const TimelinePanel = ({ block, onClose }) => {
@@ -24,97 +25,118 @@ const TimelinePanel = ({ block, onClose }) => {
 
     if (!block) return null;
 
+    const formatDate = (ts) => {
+        return new Date(ts).toLocaleString(undefined, { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+    };
+
     return (
-        <aside className="detail-panel">
+        <aside className="timeline-panel fade-in">
             {/* Header */}
-            <div className="detail-panel-header">
-                <div className="detail-panel-title">Block Detail</div>
-                <button className="detail-panel-close" onClick={onClose}>✕</button>
+            <div className="timeline-header">
+                <div className="timeline-header-content">
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Block Details</span>
+                    <h2>{block.name}</h2>
+                </div>
+                <button className="timeline-close" onClick={onClose} title="Close Panel">
+                    ✕
+                </button>
             </div>
 
-            {/* Block info */}
-            <div className="detail-panel-section">
-                <h3 className="detail-panel-block-name">{block.name}</h3>
-                <div className="detail-panel-meta">
-                    <div className="detail-panel-meta-row">
-                        <span className="detail-panel-label">Status</span>
-                        <span className={`status-badge status-${block.status}`}>{block.status}</span>
+            {/* Body */}
+            <div className="timeline-body">
+                {/* Status & Health Section */}
+                <div className="timeline-section">
+                    <div className="timeline-section-title">Status & Health</div>
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                        <span className={`status-badge status-${block.status}`}>{block.status.replace('_', ' ')}</span>
+                        <div className="health-status" style={{ background: 'var(--bg)', padding: '2px 10px', borderRadius: 20 }}>
+                            <span className={`health-dot health-dot-${block.healthStatus}`}></span>
+                            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>{block.healthStatus}</span>
+                        </div>
                     </div>
-                    <div className="detail-panel-meta-row">
-                        <span className="detail-panel-label">Health</span>
-                        <span className={`health-badge health-${block.healthStatus}`}>● {block.healthStatus}</span>
-                    </div>
-                    {block.techNode && (
-                        <div className="detail-panel-meta-row">
-                            <span className="detail-panel-label">Tech Node</span>
-                            <span className="detail-panel-value">{block.techNode}</span>
+                    
+                    {block.healthStatus !== 'HEALTHY' && block.healthReasons?.length > 0 && (
+                        <div className={`health-box health-box--${block.healthStatus}`}>
+                            <div className="health-box-title">
+                                Health Analysis
+                            </div>
+                            <div className="health-box-reason">
+                                {block.healthReasons.map((r, i) => (
+                                    <div key={i} style={{ marginBottom: 4 }}>• {r}</div>
+                                ))}
+                            </div>
                         </div>
                     )}
-                    <div className="detail-panel-meta-row">
-                        <span className="detail-panel-label">Complexity</span>
-                        <span className="detail-panel-value">{block.complexity}</span>
+                </div>
+
+                {/* Metadata Grid */}
+                <div className="timeline-section">
+                    <div className="timeline-section-title">Metadata</div>
+                    <div className="timeline-grid">
+                        <span className="timeline-grid-label">Type</span>
+                        <span className="timeline-grid-value">{block.type || 'N/A'}</span>
+                        
+                        <span className="timeline-grid-label">Node</span>
+                        <span className="timeline-grid-value">{block.techNode || 'N/A'}</span>
+                        
+                        <span className="timeline-grid-label">Complexity</span>
+                        <span className="timeline-grid-value" style={{ fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)', fontSize: 11 }}>{block.complexity}</span>
+                        
+                        <span className="timeline-grid-label">Estimated</span>
+                        <span className="timeline-grid-value">{block.estimatedHours}h</span>
+
+                        <span className="timeline-grid-label">Owner</span>
+                        <span className="timeline-grid-value" style={{ color: block.assignedEngineer ? 'var(--accent)' : 'var(--text-tertiary)', fontWeight: 600 }}>
+                            {block.assignedEngineer?.displayName || 'Unassigned'}
+                        </span>
                     </div>
-                    <div className="detail-panel-meta-row">
-                        <span className="detail-panel-label">Est. Hours</span>
-                        <span className="detail-panel-value">{block.estimatedHours}h</span>
-                    </div>
-                    <div className="detail-panel-meta-row">
-                        <span className="detail-panel-label">Assigned</span>
-                        <span className="detail-panel-value">{block.assignedEngineer?.displayName || '—'}</span>
-                    </div>
-                    {block.healthReasons?.length > 0 && (
-                        <div className="detail-panel-reasons">
-                            {block.healthReasons.map((r, i) => (
-                                <div key={i} className="detail-panel-reason">⚬ {r}</div>
+                </div>
+
+                {/* Context & Notes Panel */}
+                <BlockDocsPanel blockId={block._id} blockName={block.name} />
+
+                {/* Activity History */}
+                <div className="timeline-section" style={{ marginTop: '24px' }}>
+                    <div className="timeline-section-title">Activity History</div>
+                    
+                    {loading && <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Loading activity...</div>}
+                    
+                    {!loading && logs.length === 0 && (
+                        <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>No activity recorded yet.</div>
+                    )}
+
+                    {!loading && logs.length > 0 && (
+                        <div className="activity-list">
+                            {logs.map((log, index) => (
+                                <div key={log._id} className="activity-item">
+                                    <div className="activity-dot"></div>
+                                    <div className="activity-content">
+                                        <div className="activity-header">
+                                            <span className="activity-action">{log.action.replace('_', ' ')}</span>
+                                            <span className="activity-time">{formatDate(log.timestamp)}</span>
+                                        </div>
+                                        <div className="activity-desc">
+                                            {log.userId?.displayName && <strong>{log.userId.displayName} </strong>}
+                                            {log.message}
+                                        </div>
+                                        {log.action === 'STATUS_UPDATE' && (
+                                            <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, background: 'var(--bg)', padding: '4px 8px', borderRadius: 4, display: 'inline-flex', gap: 8 }}>
+                                                <span style={{ color: 'var(--red-text)', textDecoration: 'line-through', opacity: 0.6 }}>{log.previousValue}</span>
+                                                <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+                                                <span style={{ color: 'var(--green-text)' }}>{log.newValue}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )}
                 </div>
-            </div>
-
-            {/* Divider */}
-            <div className="detail-panel-divider"></div>
-
-            {/* Timeline */}
-            <div className="detail-panel-section detail-panel-timeline-section">
-                <div className="detail-panel-section-title">Audit History</div>
-
-                {loading && (
-                    <div className="detail-panel-empty">Loading...</div>
-                )}
-
-                {!loading && logs.length === 0 && (
-                    <div className="detail-panel-empty">No history recorded yet.</div>
-                )}
-
-                {!loading && logs.length > 0 && (
-                    <div className="detail-panel-timeline">
-                        {logs.map((log) => (
-                            <div key={log._id} className="dp-timeline-item">
-                                <div className="dp-timeline-dot"></div>
-                                <div className="dp-timeline-content">
-                                    <div className="dp-timeline-date">
-                                        {new Date(log.timestamp).toLocaleString()}
-                                    </div>
-                                    <div className="dp-timeline-action">
-                                        <strong>{log.action}</strong>
-                                        <span> by {log.userId?.displayName || 'System'}</span>
-                                    </div>
-                                    {log.message && (
-                                        <div className="dp-timeline-message">{log.message}</div>
-                                    )}
-                                    {log.action === 'STATUS_UPDATE' && (
-                                        <div className="dp-timeline-change">
-                                            <span className="dp-old">{log.previousValue}</span>
-                                            <span className="dp-arrow">→</span>
-                                            <span className="dp-new">{log.newValue}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
             </div>
         </aside>
     );
