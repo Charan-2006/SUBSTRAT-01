@@ -26,7 +26,9 @@ const Login = () => {
             <div className="login-right">
                 <div className="login-card">
                     <div className="brand">
-                        <div className="sidebar-logo">S</div>
+                        <div className="sidebar-logo">
+                            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </div>
                         SUBSTRAT
                     </div>
                     

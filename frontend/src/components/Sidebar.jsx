@@ -46,23 +46,14 @@ const Sidebar = ({
         <aside className="sidebar">
             {/* Brand Section */}
             <div className="sidebar-brand">
-                <div className="sidebar-logo">S</div>
-                {!isCollapsed && <span>SUBSTRAT</span>}
+                {!isCollapsed && (
+                    <div className="logo-tagline-container">
+                        <img src="/logo-text.png" alt="Substrat tagline" className="logo-tagline" />
+                    </div>
+                )}
                 <button 
                     onClick={onToggleCollapse}
-                    style={{
-                        marginLeft: isCollapsed ? 0 : 'auto',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-tertiary)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 24,
-                        height: 24,
-                        borderRadius: 4
-                    }}
+                    className="sidebar-collapse-btn"
                 >
                     {isCollapsed ? '→' : '←'}
                 </button>

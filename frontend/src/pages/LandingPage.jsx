@@ -89,7 +89,9 @@ const LandingPage = () => {
             {/* ─── NAVBAR ─── */}
             <nav className={`lp-navbar ${scrolled ? 'scrolled' : ''}`}>
                 <a className="lp-navbar-brand" href="#">
-                    <div className="lp-brand-logo">S</div>
+                    <div className="lp-brand-logo">
+                        <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    </div>
                     SUBSTRAT
                 </a>
                 <div className="lp-navbar-links">
@@ -315,7 +317,9 @@ const LandingPage = () => {
             {/* ─── FOOTER ─── */}
             <footer className="lp-footer">
                 <div className="lp-footer-brand">
-                    <div className="lp-brand-logo" style={{ width: 24, height: 24, fontSize: 12, borderRadius: 6 }}>S</div>
+                    <div className="lp-brand-logo" style={{ width: 24, height: 24, fontSize: 12, borderRadius: 6 }}>
+                        <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    </div>
                     © {new Date().getFullYear()} SUBSTRAT
                 </div>
                 <div className="lp-footer-links">

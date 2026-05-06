@@ -21,12 +21,20 @@
 .navbar-brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--tl-primary);
+    gap: 10px;
     text-decoration: none;
-    letter-spacing: -0.03em;
+}
+
+.logo-icon {
+    height: 30px;
+    width: auto;
+}
+
+.brand-text {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
 }
 
 /* ---- Global Search Bar (Jira Style) ---- */

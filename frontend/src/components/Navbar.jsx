@@ -61,8 +61,8 @@ const Navbar = ({ searchTerm, onSearchChange, blocks = [], engineers = [] }) => 
         <nav className="navbar">
             <div className="navbar-left">
                 <a href="/" className="navbar-brand">
-                    <Activity size={24} strokeWidth={3} />
-                    <span>SUBSTRAT</span>
+                    <img src="/logo.png" alt="Substrat logo" className="logo-icon" />
+                    <span className="brand-text">SUBSTRAT</span>
                 </a>
             </div>
 
