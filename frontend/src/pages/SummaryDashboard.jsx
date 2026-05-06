@@ -15,7 +15,7 @@ const REFINED_COLORS = {
     'COMPLETED': { fill: '#d1fae5', border: '#10b981', text: '#047857' }
 };
 
-const SummaryDashboard = ({ blocks = [], analytics = {}, engineers = [], onSelectBlock }) => {
+const SummaryDashboard = ({ blocks = [], analytics = {}, engineers = [], onSelectBlock, isEngineerView = false }) => {
     const [filterByStage, setFilterByStage] = useState(null);
     const [healthFilter, setHealthFilter] = useState('ALL');
 
@@ -74,7 +74,7 @@ const SummaryDashboard = ({ blocks = [], analytics = {}, engineers = [], onSelec
             </div>
 
             {/* Bottleneck Card */}
-            {analytics?.bottleneckStage && (
+            {!isEngineerView && analytics?.bottleneckStage && (
                 <div className="bottleneck-card">
                     <div className="bottleneck-info">
                         <div className="bottleneck-meta">CURRENT SYSTEM BOTTLENECK</div>
@@ -187,27 +187,29 @@ const SummaryDashboard = ({ blocks = [], analytics = {}, engineers = [], onSelec
                         </div>
                     </div>
 
-                    <div className="dashboard-card" style={{ marginTop: 24 }}>
-                        <div className="dashboard-card-title"><User size={16} /> Team Capacity</div>
-                        <div className="team-workload">
-                            {engineers.slice(0, 5).map(eng => {
-                                const count = blocks.filter(b => b.assignedEngineer?._id === eng._id).length;
-                                const max = 5;
-                                const percentage = Math.min(100, (count / max) * 100);
-                                return (
-                                    <div key={eng._id} style={{ marginBottom: 12 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
-                                            <span>{eng.displayName}</span>
-                                            <span>{count} Blocks</span>
+                    {!isEngineerView && (
+                        <div className="dashboard-card" style={{ marginTop: 24 }}>
+                            <div className="dashboard-card-title"><User size={16} /> Team Capacity</div>
+                            <div className="team-workload">
+                                {engineers.slice(0, 5).map(eng => {
+                                    const count = blocks.filter(b => b.assignedEngineer?._id === eng._id).length;
+                                    const max = 5;
+                                    const percentage = Math.min(100, (count / max) * 100);
+                                    return (
+                                        <div key={eng._id} style={{ marginBottom: 12 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+                                                <span>{eng.displayName}</span>
+                                                <span>{count} Blocks</span>
+                                            </div>
+                                            <div style={{ height: 6, background: 'var(--tl-bg)', borderRadius: 3, overflow: 'hidden' }}>
+                                                <div style={{ width: `${percentage}%`, height: '100%', background: percentage > 80 ? '#ef4444' : 'var(--tl-primary)' }} />
+                                            </div>
                                         </div>
-                                        <div style={{ height: 6, background: 'var(--tl-bg)', borderRadius: 3, overflow: 'hidden' }}>
-                                            <div style={{ width: `${percentage}%`, height: '100%', background: percentage > 80 ? '#ef4444' : 'var(--tl-primary)' }} />
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

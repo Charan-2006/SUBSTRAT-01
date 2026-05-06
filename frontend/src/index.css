@@ -481,3 +481,69 @@ tbody tr:hover {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
 }
+/* ---- Engineer Dashboard Specifics ---- */
+
+.hover-row {
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.hover-row:hover {
+    background-color: var(--border-light) !important;
+    transform: translateX(2px);
+}
+
+.row-critical {
+    border-left: 3px solid var(--red) !important;
+}
+
+.bl-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+}
+
+.bl-item:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.bl-item-main {
+    flex: 1;
+}
+
+.bl-item-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.bl-item-meta {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+}
+
+.bl-item-reason {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    max-width: 300px;
+}
+
+.bl-item-critical {
+    border-left: 4px solid var(--red);
+}
+
+.bl-item-risk {
+    border-left: 4px solid var(--amber);
+}

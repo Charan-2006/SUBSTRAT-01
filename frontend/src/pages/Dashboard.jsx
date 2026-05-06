@@ -236,7 +236,7 @@ const Dashboard = () => {
     };
 
     if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-tertiary)', fontSize: 14 }}>Loading...</div>;
-    if (!user) return <Navigate to="/login" replace />;
+    if (!user) return <Navigate to="/" replace />;
 
     const isManager = user.role === 'Manager';
 
@@ -287,6 +287,7 @@ const Dashboard = () => {
                         />
                     ) : (
                         <EngineerDashboard
+                            user={user}
                             blocks={blocks}
                             filteredBlocks={filteredBlocks}
                             analytics={analytics}

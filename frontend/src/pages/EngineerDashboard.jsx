@@ -1,26 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import SummaryDashboard from './SummaryDashboard';
 import WorkflowTimeline from './WorkflowTimeline';
 import RequestsTab from './RequestsTab';
-import ReportingTab from './ReportingTab';
-import DocsTab from './DocsTab';
-import InsightsTab from './InsightsTab';
-import PriorityMatrixTab from './PriorityMatrixTab';
-import RoadmapTab from './RoadmapTab';
 import ExecutionTab from './ExecutionTab';
 
-const EngineerDashboard = ({ blocks = [], filteredBlocks = [], analytics, engineers = [], requests = [], onCreateRequest, onUpdateStatus, selectedBlockId, onSelectBlock }) => {
+const EngineerDashboard = ({ user, blocks = [], filteredBlocks = [], analytics, engineers = [], requests = [], onCreateRequest, onUpdateStatus, selectedBlockId, onSelectBlock }) => {
     const workflowOrder = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
     const [sortField, setSortField] = useState('name');
     const [sortOrder, setSortOrder] = useState('asc');
-    const [activeTab, setActiveTab] = useState('list');
+    const [activeTab, setActiveTab] = useState('my-work');
+
+    // Filter to only my assignments
+    const myBlocks = useMemo(() => {
+        return blocks.filter(b => b.assignedEngineer?._id === user?._id || b.assignedEngineer === user?._id);
+    }, [blocks, user]);
+
+    const myFilteredBlocks = useMemo(() => {
+        return filteredBlocks.filter(b => b.assignedEngineer?._id === user?._id || b.assignedEngineer === user?._id);
+    }, [filteredBlocks, user]);
 
     const calculateUpcomingStatus = (currentStatus) => {
         const index = workflowOrder.indexOf(currentStatus);
-        if (index !== -1 && index < workflowOrder.length - 2) {
+        if (index !== -1 && index < workflowOrder.length - 1) {
             return workflowOrder[index + 1];
         }
         return null;
+    };
+
+    const getPriority = (complexity) => {
+        if (complexity === 'CRITICAL' || complexity === 'COMPLEX') return { label: 'High', color: '#ef4444' };
+        if (complexity === 'MEDIUM') return { label: 'Medium', color: '#f59e0b' };
+        return { label: 'Low', color: '#3b82f6' };
+    };
+
+    const getDueDate = (block) => {
+        if (!block.stageStartTime || !block.estimatedHours) return '—';
+        const start = new Date(block.stageStartTime);
+        const due = new Date(start.getTime() + block.estimatedHours * 60 * 60 * 1000);
+        return due.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    };
+
+    const getNextAction = (status) => {
+        const actions = {
+            'NOT_STARTED': 'Begin Setup',
+            'IN_PROGRESS': 'Run Layout',
+            'DRC': 'Fix Violations',
+            'LVS': 'Resolve LVS',
+            'REVIEW': 'Apply Feedback',
+            'COMPLETED': 'Archived'
+        };
+        return actions[status] || 'Proceed';
     };
 
     const handleSort = (field) => {
@@ -32,7 +61,7 @@ const EngineerDashboard = ({ blocks = [], filteredBlocks = [], analytics, engine
         }
     };
 
-    const sortedBlocks = [...filteredBlocks].sort((a, b) => {
+    const sortedBlocks = [...myFilteredBlocks].sort((a, b) => {
         let valA = a[sortField];
         let valB = b[sortField];
 
@@ -43,10 +72,6 @@ const EngineerDashboard = ({ blocks = [], filteredBlocks = [], analytics, engine
             const healthOrder = ['CRITICAL', 'RISK', 'HEALTHY'];
             valA = healthOrder.indexOf(a.healthStatus);
             valB = healthOrder.indexOf(b.healthStatus);
-        } else if (sortField === 'complexity') {
-            const complexityOrder = ['SIMPLE', 'MEDIUM', 'COMPLEX'];
-            valA = complexityOrder.indexOf(a.complexity);
-            valB = complexityOrder.indexOf(b.complexity);
         }
 
         if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -64,122 +89,92 @@ const EngineerDashboard = ({ blocks = [], filteredBlocks = [], analytics, engine
             {/* Header Bar */}
             <div className="header-bar">
                 <div className="header-bar-top">
-                    <h1>My Assignments</h1>
+                    <h1>Engineer Workspace</h1>
+                    <div style={{ fontSize: 13, color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                        {myBlocks.length} Assigned Blocks • {myBlocks.filter(b => b.healthStatus === 'CRITICAL').length} Blocked
+                    </div>
                 </div>
                 <div className="header-bar-tabs">
                     <div 
-                        className={`header-tab ${activeTab === 'list' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('list')}
-                    >List</div>
+                        className={`header-tab ${activeTab === 'my-work' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('my-work')}
+                    >My Work</div>
                     <div 
-                        className={`header-tab ${activeTab === 'overview' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('overview')}
-                    >Overview</div>
+                        className={`header-tab ${activeTab === 'summary' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('summary')}
+                    >Summary</div>
                     <div 
                         className={`header-tab ${activeTab === 'timeline' ? 'active' : ''}`}
                         onClick={() => setActiveTab('timeline')}
                     >Timeline</div>
                     <div 
-                        className={`header-tab ${activeTab === 'requests' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('requests')}
-                    >Requests</div>
-                    <div 
-                        className={`header-tab ${activeTab === 'reporting' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('reporting')}
-                    >Reporting</div>
-                    <div 
-                        className={`header-tab ${activeTab === 'docs' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('docs')}
-                    >Docs</div>
-                    <div 
-                        className={`header-tab ${activeTab === 'insights' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('insights')}
-                    >Insights</div>
-                    <div 
-                        className={`header-tab ${activeTab === 'matrix' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('matrix')}
-                    >Matrix</div>
-                    <div 
-                        className={`header-tab ${activeTab === 'roadmap' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('roadmap')}
-                    >Roadmap</div>
-                    <div 
                         className={`header-tab ${activeTab === 'execution' ? 'active' : ''}`}
                         onClick={() => setActiveTab('execution')}
                     >Execution</div>
+                    <div 
+                        className={`header-tab ${activeTab === 'blockers' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('blockers')}
+                    >Blockers</div>
+                    <div 
+                        className={`header-tab ${activeTab === 'requests' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('requests')}
+                    >Requests</div>
                 </div>
             </div>
 
             <div className="page-content">
-                <div style={{ marginBottom: 24 }}>
-                    <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                        Manage your assigned layout blocks and advance them to the next stage upon completion.
-                    </p>
-                </div>
-
-                {activeTab === 'list' && (
+                {activeTab === 'my-work' && (
                     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {sortedBlocks.length} Result{sortedBlocks.length !== 1 ? 's' : ''}
+                        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Assigned Blocks ({sortedBlocks.length})
+                            </div>
                         </div>
 
                         <table>
                             <thead>
                                 <tr>
-                                    <th style={{ width: 40, paddingLeft: 20 }}><input type="checkbox" /></th>
                                     <th className="sortable" onClick={() => handleSort('name')}>Name {renderSortIcon('name')}</th>
-                                    <th className="sortable" onClick={() => handleSort('complexity')}>Complexity {renderSortIcon('complexity')}</th>
-                                    <th className="sortable" onClick={() => handleSort('status')}>Status {renderSortIcon('status')}</th>
-                                    <th className="sortable" onClick={() => handleSort('health')}>Health {renderSortIcon('health')}</th>
-                                    <th>Review Notes</th>
-                                    <th style={{ width: 180, textAlign: 'right', paddingRight: 24 }}>Actions</th>
+                                    <th className="sortable" onClick={() => handleSort('status')}>Stage {renderSortIcon('status')}</th>
+                                    <th style={{ width: 120 }}>Status</th>
+                                    <th style={{ width: 100 }}>Priority</th>
+                                    <th style={{ width: 100 }}>Due Date</th>
+                                    <th style={{ width: 120, textAlign: 'right', paddingRight: 24 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {sortedBlocks.length === 0 && (
                                     <tr>
-                                        <td colSpan="7" style={{ textAlign: 'center', padding: 64, color: 'var(--text-tertiary)', fontWeight: 500 }}>
-                                            No blocks currently assigned to you.
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: 64, color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                                            No active assignments matching current filters.
                                         </td>
                                     </tr>
                                 )}
                                 {sortedBlocks.map(block => {
-                                    const upcomingStatus = calculateUpcomingStatus(block.status);
+                                    const priority = getPriority(block.complexity);
                                     return (
                                         <tr
                                             key={block._id}
-                                            className={`${selectedBlockId === block._id ? 'row-selected' : ''}`}
+                                            className={`hover-row ${selectedBlockId === block._id ? 'row-selected' : ''} ${block.healthStatus === 'CRITICAL' ? 'row-critical' : ''}`}
                                             onClick={() => onSelectBlock(block)}
-                                            style={{ cursor: 'pointer' }}
                                         >
-                                            <td style={{ paddingLeft: 20 }} onClick={e => e.stopPropagation()}><input type="checkbox" /></td>
                                             <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{block.name}</td>
                                             <td>
-                                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{block.complexity}</span>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{block.status.replace('_', ' ')}</span>
                                             </td>
-                                            <td><span className={`status-badge status-${block.status}`}>{block.status.replace('_', ' ')}</span></td>
                                             <td>
                                                 <div className="health-status">
                                                     <span className={`health-dot health-dot-${block.healthStatus}`}></span>
-                                                    {block.healthStatus}
+                                                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>{block.healthStatus}</span>
                                                 </div>
                                             </td>
-                                            <td style={{ color: block.rejectionReason ? 'var(--red-text)' : 'var(--text-tertiary)', fontSize: 12, fontWeight: block.rejectionReason ? 700 : 400 }}>
-                                                {block.rejectionReason || 'No notes available'}
+                                            <td>
+                                                <span style={{ fontSize: 11, fontWeight: 700, color: priority.color }}>{priority.label}</span>
                                             </td>
+                                            <td style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{getDueDate(block)}</td>
                                             <td style={{ paddingRight: 24 }}>
                                                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                                                    {upcomingStatus && (
-                                                        <button className="btn btn-sm btn-primary" onClick={() => {
-                                                            console.log(`[UI Event] Click Advance Stage for block ${block._id}`);
-                                                            onUpdateStatus(block._id, upcomingStatus);
-                                                        }}>
-                                                            Advance Stage
-                                                         </button>
-                                                    )}
-                                                    <button className="btn btn-sm" onClick={() => onSelectBlock(block)}>
-                                                        View
-                                                    </button>
+                                                    <button className="btn btn-sm" onClick={() => onSelectBlock(block)}>View</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -190,29 +185,55 @@ const EngineerDashboard = ({ blocks = [], filteredBlocks = [], analytics, engine
                     </div>
                 )}
 
-                {activeTab === 'overview' && (
+                {activeTab === 'summary' && (
                     <SummaryDashboard 
-                        blocks={blocks} 
+                        blocks={myBlocks} 
                         analytics={analytics} 
-                        engineers={engineers} 
+                        isEngineerView={true}
                         onSelectBlock={onSelectBlock}
                     />
                 )}
 
                 {activeTab === 'timeline' && (
                     <WorkflowTimeline 
-                        blocks={blocks} 
+                        blocks={myBlocks} 
                         onSelectBlock={onSelectBlock}
                         onUpdateStatus={onUpdateStatus}
                     />
                 )}
 
-                {activeTab === 'reporting' && (
-                    <ReportingTab 
-                        blocks={blocks} 
-                        engineers={engineers} 
-                        analytics={analytics} 
-                    />
+                {activeTab === 'execution' && (
+                    <ExecutionTab blocks={myBlocks} onSelectBlock={onSelectBlock} />
+                )}
+
+                {activeTab === 'blockers' && (
+                    <div className="card">
+                        <div className="card-header">
+                            <h3>Active Blockers & Risks</h3>
+                        </div>
+                        <div className="card-content">
+                            {myBlocks.filter(b => b.healthStatus !== 'HEALTHY').length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-tertiary)' }}>
+                                    Great work! No active blockers detected in your workflow.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {myBlocks.filter(b => b.healthStatus !== 'HEALTHY').map(block => (
+                                        <div key={block._id} className={`bl-item bl-item-${block.healthStatus.toLowerCase()}`} onClick={() => onSelectBlock(block)}>
+                                            <div className="bl-item-main">
+                                                <div className="bl-item-title">{block.name}</div>
+                                                <div className="bl-item-meta">{block.status.replace('_', ' ')} • {getDueDate(block)}</div>
+                                            </div>
+                                            <div className="bl-item-reason">
+                                                {block.healthReasons?.[0] || 'Manual flag: Check health status'}
+                                            </div>
+                                            <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); onSelectBlock(block); }}>Fix Blocker</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
 
                 {activeTab === 'requests' && (
@@ -222,26 +243,6 @@ const EngineerDashboard = ({ blocks = [], filteredBlocks = [], analytics, engine
                         engineers={engineers}
                         isManager={false}
                     />
-                )}
-
-                {activeTab === 'docs' && (
-                    <DocsTab blocks={blocks} />
-                )}
-
-                {activeTab === 'insights' && (
-                    <InsightsTab blocks={blocks} engineers={engineers} onSelectBlock={onSelectBlock} onUpdateStatus={onUpdateStatus} />
-                )}
-
-                {activeTab === 'matrix' && (
-                    <PriorityMatrixTab blocks={blocks} onSelectBlock={onSelectBlock} />
-                )}
-
-                {activeTab === 'roadmap' && (
-                    <RoadmapTab blocks={blocks} onSelectBlock={onSelectBlock} />
-                )}
-
-                {activeTab === 'execution' && (
-                    <ExecutionTab blocks={blocks} onSelectBlock={onSelectBlock} />
                 )}
             </div>
         </div>

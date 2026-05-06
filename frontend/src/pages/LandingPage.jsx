@@ -45,13 +45,12 @@ const features = [
     }
 ];
 
-/* ─── Mock Preview Data ─── */
+/* ─── Mock Data for Timeline ─── */
 const mockRows = [
-    { name: 'CORE_ALU_v2', status: 'In Progress', color: '#3b82f6', barWidth: '65%' },
-    { name: 'SRAM_CTRL_4x', status: 'DRC', color: '#f59e0b', barWidth: '45%' },
-    { name: 'PLL_PHASE_GEN', status: 'Completed', color: '#22c55e', barWidth: '100%' },
-    { name: 'IO_PAD_RING', status: 'LVS', color: '#eab308', barWidth: '55%' },
-    { name: 'CLK_TREE_OPT', status: 'Review', color: '#8b5cf6', barWidth: '80%' },
+    { name: 'ADC_CORE_01', status: 'IN PROGRESS', color: '#3b82f6', barWidth: '65%' },
+    { name: 'BIAS_GEN_TOP', status: 'DRC CLEAN', color: '#22c55e', barWidth: '100%' },
+    { name: 'PLL_SYNTH_04', status: 'IN REVIEW', color: '#8b5cf6', barWidth: '85%' },
+    { name: 'SRAM_CTRL_16x', status: 'LVS PENDING', color: '#f59e0b', barWidth: '45%' },
 ];
 
 /* ─── Google SVG Icon ─── */
@@ -99,7 +98,7 @@ const LandingPage = () => {
                     <a href="#preview">Preview</a>
                 </div>
                 <div className="lp-navbar-actions">
-                    <button className="lp-btn lp-btn-ghost" onClick={() => navigate('/login')}>
+                    <button className="lp-btn lp-btn-ghost" onClick={handleGoogleLogin}>
                         Log In
                     </button>
                     <button className="lp-btn lp-btn-primary" onClick={handleGoogleLogin}>
@@ -136,7 +135,7 @@ const LandingPage = () => {
                                 <GoogleIcon />
                                 Continue with Google
                             </button>
-                            <button className="lp-btn lp-btn-secondary" onClick={() => navigate('/login')}>
+                            <button className="lp-btn lp-btn-secondary" onClick={handleGoogleLogin}>
                                 View Demo →
                             </button>
                         </motion.div>
@@ -227,19 +226,19 @@ const LandingPage = () => {
                                             {row.status}
                                         </motion.div>
                                     </div>
-                                    <div className="lp-mock-bar-container">
-                                        <motion.div 
-                                            className="lp-mock-bar-fill" 
-                                            style={{ 
-                                                background: `linear-gradient(90deg, ${row.color}cc, ${row.color})`, 
-                                                boxShadow: `0 0 10px ${row.color}40`
-                                            }}
-                                            initial={{ width: '0%' }}
-                                            whileInView={{ width: row.barWidth }}
-                                            viewport={{ once: true }}
-                                            transition={{ delay: 0.2 + (i * 0.1), duration: 0.8, ease: "easeOut" }}
-                                        />
-                                    </div>
+                                        <div className="lp-mock-bar-container">
+                                            <motion.div 
+                                                className="lp-mock-bar-fill" 
+                                                style={{ 
+                                                    background: `linear-gradient(90deg, #6366f1, #4F46E5)`, 
+                                                    boxShadow: `0 0 10px rgba(79,70,229,0.3)`
+                                                }}
+                                                initial={{ width: '0%' }}
+                                                whileInView={{ width: row.barWidth }}
+                                                viewport={{ once: true }}
+                                                transition={{ delay: 0.2 + (i * 0.1), duration: 1.5, ease: "easeOut" }}
+                                            />
+                                        </div>
                                 </motion.div>
                             ))}
                         </div>
@@ -263,27 +262,27 @@ const LandingPage = () => {
                         No setup guides. No onboarding calls. Just start.
                     </motion.p>
 
-                    <div className="lp-steps-container">
+                    <div className="lp-steps-container-vertical">
                         <motion.div 
-                            className="lp-steps-connection-line"
-                            initial={{ scaleX: 0 }}
-                            whileInView={{ scaleX: 1 }}
+                            className="lp-steps-connection-line-vertical"
+                            initial={{ scaleY: 0 }}
+                            whileInView={{ scaleY: 1 }}
                             viewport={{ once: true }}
-                            transition={{ duration: 1, ease: "easeInOut" }}
-                            style={{ transformOrigin: "left" }}
+                            transition={{ duration: 1.5, ease: "easeInOut" }}
+                            style={{ transformOrigin: "top" }}
                         />
-                        <div className="lp-steps-grid">
+                        <div className="lp-steps-grid-vertical">
                             {[
                                 { num: '1', title: 'Create or Request', desc: 'Submit layout blocks or file structured requests through the intake system.' },
                                 { num: '2', title: 'Track Progress', desc: 'Monitor real-time status across DRC, LVS, Review, and all workflow stages.' },
                                 { num: '3', title: 'Deliver with Clarity', desc: 'Ship on time with bottleneck alerts, health monitoring, and team insights.' }
                             ].map((step, i) => (
-                                <motion.div key={i} className="lp-step-premium" variants={fadeUp} custom={i}>
-                                    <div className="lp-step-node">
-                                        <div className="lp-step-node-inner">{step.num}</div>
+                                <motion.div key={i} className="lp-step-vertical" variants={fadeUp} custom={i}>
+                                    <div className="lp-step-indicator-node" />
+                                    <div className="lp-step-content-vertical">
+                                        <h3>{step.title}</h3>
+                                        <p>{step.desc}</p>
                                     </div>
-                                    <h3>{step.title}</h3>
-                                    <p>{step.desc}</p>
                                 </motion.div>
                             ))}
                         </div>

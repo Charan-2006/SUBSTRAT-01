@@ -98,16 +98,27 @@ const ExecutionTab = ({ blocks = [], onSelectBlock }) => {
                                     <thead>
                                         <tr>
                                             <th>Block</th>
-                                            <th>Assignee</th>
+                                            <th>Next Step</th>
                                             <th>Health</th>
                                             <th>Started</th>
                                             <th>Est. Finish</th>
-                                            <th style={{ width: 160 }}>Progress</th>
+                                            <th style={{ width: 140 }}>Progress</th>
+                                            <th style={{ width: 100, textAlign: 'right' }}>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {stageBlocks.map(block => {
                                             const progress = getProgress(block);
+                                            const getActionHint = (status) => {
+                                                const hints = {
+                                                    'IN_PROGRESS': 'Finalize Layout',
+                                                    'DRC': 'Clear Violations',
+                                                    'LVS': 'Resolve Netlist',
+                                                    'REVIEW': 'Submit Changes',
+                                                    'COMPLETED': 'No action'
+                                                };
+                                                return hints[status] || 'Proceed';
+                                            };
                                             return (
                                                 <tr
                                                     key={block._id}
@@ -117,8 +128,8 @@ const ExecutionTab = ({ blocks = [], onSelectBlock }) => {
                                                     <td style={{ fontWeight: 600, color: 'var(--accent)' }}>
                                                         {block.name}
                                                     </td>
-                                                    <td style={{ fontSize: 12 }}>
-                                                        {block.assignedEngineer?.displayName || 'Unassigned'}
+                                                    <td style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                                                        {getActionHint(block.status)}
                                                     </td>
                                                     <td>
                                                         <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -154,6 +165,9 @@ const ExecutionTab = ({ blocks = [], onSelectBlock }) => {
                                                                 {progress}%
                                                             </span>
                                                         </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); onSelectBlock?.(block); }}>Continue</button>
                                                     </td>
                                                 </tr>
                                             );
