@@ -10,7 +10,8 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
         try {
             const res = await api.get('/auth/me');
-            setUser(res.data.data);
+            const userData = res?.data?.data || null;
+            setUser(userData);
         } catch (error) {
             setUser(null);
         } finally {
@@ -19,7 +20,15 @@ export const AuthProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        checkAuth();
+        const timeoutId = setTimeout(() => {
+            if (loading) {
+                console.warn('[AuthContext] Auth check timed out. Forcing loading to false.');
+                setLoading(false);
+            }
+        }, 5000); // 5s safety timeout
+
+        checkAuth().then(() => clearTimeout(timeoutId));
+        return () => clearTimeout(timeoutId);
     }, []);
 
     const logout = async () => {

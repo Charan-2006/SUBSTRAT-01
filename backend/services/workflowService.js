@@ -1,79 +1,99 @@
 const WORKFLOW_ORDER = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
-
-const STAGE_CRITICALITY = {
-    'DRC': 'HIGH',
-    'LVS': 'HIGH',
-    'REVIEW': 'MEDIUM',
-    'IN_PROGRESS': 'LOW',
-    'NOT_STARTED': 'LOW',
-    'COMPLETED': 'LOW'
-};
+const { createNotification } = require('../utils/notifier');
 
 /**
- * Calculate estimated hours based on complexity and tech node
+ * DETERMINISTIC SLA THRESHOLDS (Signal 2)
  */
-exports.calculateEstimation = (complexity, techNode) => {
-    let base = 20;
-    switch (complexity) {
-        case 'MEDIUM': base = 40; break;
-        case 'COMPLEX': base = 60; break;
-        case 'CRITICAL': base = 80; break;
-        default: base = 20; // SIMPLE
-    }
-
-    let multiplier = 1.0;
-    if (techNode === '12nm') multiplier = 1.2;
-    if (techNode === '7nm') multiplier = 1.3;
-    if (techNode === '5nm') multiplier = 1.5; // Added for future proofing
-
-    return Math.round(base * multiplier);
+const STAGE_SLA_THRESHOLDS = {
+    'NOT_STARTED': 0,
+    'IN_PROGRESS': 8,
+    'DRC': 8,
+    'LVS': 10,
+    'REVIEW': 4,
+    'COMPLETED': 0
 };
 
 /**
- * Calculate health status based on time spent and rejections
+ * Calculate health status based on deterministic execution signals
  */
 exports.calculateHealth = (block) => {
-    let status = 'HEALTHY';
+    if (!block) return { status: 'HEALTHY', score: 100, reasons: [] };
+
+    if (block.status === 'COMPLETED') {
+        return { status: 'HEALTHY', score: 100, reasons: [] };
+    }
+
     let reasons = [];
-
-    const estimatedHours = block.estimatedHours || 0;
-    if (estimatedHours === 0 || block.status === 'NOT_STARTED' || block.status === 'COMPLETED') {
-        return { status: 'HEALTHY', reasons: [] };
-    }
-
-    // Time spent in current stage
-    const stageStartTime = block.stageStartTime || block.createdAt;
-    const timeSpentInStage = (Date.now() - stageStartTime.getTime()) / (1000 * 60 * 60);
     
-    // We assume the total estimated hours is distributed across stages.
-    // For simplicity, let's say each stage should take roughly 20% of total time.
-    const expectedStageTime = estimatedHours * 0.2;
+    // SIGNAL 3: Manual Escalation
+    const isEscalated = block.escalationState === 'ESCALATED' || block.escalationState === 'CRITICAL_ESCALATED';
+    
+    // SIGNAL 2: Stage Stagnation (SLA Drift)
+    const baseExpected = STAGE_SLA_THRESHOLDS[block.status] || 8;
+    let multiplier = 1.0;
+    if (block.complexity === 'SIMPLE') multiplier = 0.7;
+    else if (block.complexity === 'COMPLEX') multiplier = 1.4;
+    else if (block.complexity === 'CRITICAL') multiplier = 1.8;
 
-    // Base status on time
-    if (timeSpentInStage > expectedStageTime * 1.5) {
+    let expectedHours = baseExpected * multiplier;
+    const stageStartTime = block.stageStartTime || block.createdAt;
+    const actualHours = (Date.now() - new Date(stageStartTime).getTime()) / (1000 * 60 * 60);
+    const overrunRatio = expectedHours > 0 ? (actualHours / expectedHours) : 0;
+    
+    // SIGNAL 1: Rejection-Driven Criticality
+    const rejections = block.rejectionCount || 0;
+    
+    // DETERMINISTIC HEALTH MAPPING
+    let status = 'HEALTHY';
+
+    // Rule: Escalation is instant CRITICAL
+    if (isEscalated) {
         status = 'CRITICAL';
-        reasons.push(`Time in ${block.status} (${timeSpentInStage.toFixed(1)}h) >> expected (${expectedStageTime.toFixed(1)}h)`);
-    } else if (timeSpentInStage > expectedStageTime) {
-        status = 'RISK';
-        reasons.push(`Time in ${block.status} (${timeSpentInStage.toFixed(1)}h) > expected (${expectedStageTime.toFixed(1)}h)`);
+        reasons.push('Manual Escalation Triggered');
+    } 
+    // Rule: 3+ rejections is CRITICAL
+    else if (rejections >= 3) {
+        status = 'CRITICAL';
+        reasons.push(`${rejections} execution rejections (CRITICAL)`);
+    }
+    // Rule: 50%+ SLA overrun is CRITICAL
+    else if (overrunRatio >= 0.5) {
+        status = 'CRITICAL';
+        reasons.push(`Severe stage stagnation (>50% overrun)`);
+    }
+    // Rule: 1-2 rejections is WARNING
+    else if (rejections >= 1) {
+        status = 'WARNING';
+        reasons.push(`${rejections} rejections (Elevated Pressure)`);
+    }
+    // Rule: 25%+ SLA overrun is WARNING
+    else if (overrunRatio >= 0.25) {
+        status = 'WARNING';
+        reasons.push(`Stage stagnation (>25% overrun)`);
     }
 
-    // Impact of rejections
-    if (block.rejectionCount >= 2) {
-        status = 'CRITICAL';
-        reasons.push(`${block.rejectionCount} rejections reached`);
-    } else if (block.rejectionCount === 1) {
-        // Increase risk level by one step
-        if (status === 'HEALTHY') {
-            status = 'RISK';
-            reasons.push('Increased risk due to rejection');
-        } else if (status === 'RISK') {
-            status = 'CRITICAL';
-            reasons.push('Critical status reached due to delay and rejection');
+    // BOTTLENECK Detection Layer (Signal 4)
+    // Layered on top of CRITICAL if it blocks downstream
+    const propagationRisk = (block.downstreamCount || 0) * 0.1 + (rejections * 0.2);
+    if (status === 'CRITICAL' && (block.downstreamCount > 0) && propagationRisk > 0.3) {
+        status = 'BOTTLENECK';
+        reasons.push('Critical bottleneck impacting downstream orchestration');
+    }
+
+    // Telemetry and Scoring
+    const totalScore = Math.max(0, 100 - (rejections * 25) - (overrunRatio * 50) - (isEscalated ? 40 : 0));
+
+    return { 
+        status, 
+        score: Math.round(totalScore), 
+        reasons,
+        telemetry: {
+            rejectionPressure: rejections * 20,
+            stagnationIndex: Math.round(overrunRatio * 100),
+            priorityRank: Math.round(totalScore), // Simplified rank for backend
+            propagationImpact: Math.round(propagationRisk * 100)
         }
-    }
-
-    return { status, reasons };
+    };
 };
 
 /**
@@ -85,16 +105,141 @@ exports.validateTransition = (currentStatus, nextStatus) => {
 
     if (nextIndex === -1) return { valid: false, message: 'Invalid status' };
 
-    // Linear progression only
+    // Linear progression or rollback from Review
+    if (currentStatus === 'REVIEW' && ['IN_PROGRESS', 'DRC', 'LVS'].includes(nextStatus)) {
+        return { valid: true };
+    }
+
     if (nextIndex !== currentIndex + 1) {
         return { 
             valid: false, 
-            message: `Invalid transition from ${currentStatus} to ${nextStatus}. You must follow the sequence: ${WORKFLOW_ORDER.join(' → ')}` 
+            message: `Invalid transition from ${currentStatus} to ${nextStatus}. Sequential flow required.` 
         };
     }
 
     return { valid: true };
 };
 
+/**
+ * CORE EXECUTION ENGINE: Resume Workflow Action
+ */
+exports.resumeWorkflow = async (block, allBlocks) => {
+    const now = new Date();
+    
+    // 1. Handle Blocked State Resolution
+    if (block.executionState === 'BLOCKED' || block.status === 'NOT_STARTED') {
+        const { valid, message } = await exports.checkDependencyResolution(block, allBlocks);
+        if (!valid) {
+            block.executionState = 'BLOCKED';
+            return { success: false, message };
+        }
+    }
+
+    // 2. Transition to IN_PROGRESS if not already
+    if (block.executionState !== 'IN_PROGRESS') {
+        block.executionState = 'IN_PROGRESS';
+        if (block.status === 'NOT_STARTED') {
+            block.status = 'IN_PROGRESS';
+            block.stageStartTime = now;
+        }
+        await block.save();
+        return { success: true, message: `Workflow ${block.name} resumed execution.`, block };
+    }
+
+    // 3. Toggle Execution State
+    block.isExecuting = !block.isExecuting;
+    
+    if (block.isExecuting) {
+        block.executionState = 'IN_PROGRESS';
+        if (block.status === 'NOT_STARTED') {
+            block.status = 'IN_PROGRESS';
+            block.stageStartTime = now;
+        }
+    } else {
+        block.executionState = 'READY';
+    }
+
+    await block.save();
+    
+    // 5. Global Propagation: If this block reached a state that might unblock others
+    const unblockedCount = await exports.propagateWorkflowChanges(block, allBlocks);
+
+    return { 
+        success: true, 
+        message: block.progress >= 100 ? `Stage advanced to ${block.status}` : `Execution progressed to ${block.progress}%`,
+        unblockedCount,
+        block 
+    };
+};
+
+/**
+ * Check if all dependencies are completed
+ */
+exports.checkDependencyResolution = async (block, allBlocks) => {
+    // Refresh dependencies if they are just IDs
+    const dependencies = block.dependencies || [];
+    
+    for (const depId of dependencies) {
+        const dep = allBlocks.find(b => b._id.toString() === (depId._id || depId).toString());
+        if (dep && dep.status !== 'COMPLETED') {
+            return { valid: false, message: `Blocked by upstream dependency: ${dep.name}` };
+        }
+    }
+    
+    return { valid: true };
+};
+
+/**
+ * Cascading Orchestration: Unblock downstream nodes
+ */
+exports.propagateWorkflowChanges = async (sourceBlock, allBlocks) => {
+    let unblockedCount = 0;
+    
+    if (sourceBlock.status !== 'COMPLETED') return 0;
+    
+    const downstream = allBlocks.filter(b => 
+        b.dependencies && b.dependencies.some(d => d.toString() === sourceBlock._id.toString())
+    );
+    
+    for (const node of downstream) {
+        const { valid } = await exports.checkDependencyResolution(node, allBlocks);
+        if (valid && node.executionState === 'BLOCKED') {
+            node.executionState = 'READY';
+            await node.save();
+            unblockedCount++;
+
+            // Notify Assigned Engineer
+            if (node.assignedEngineer) {
+                await createNotification({
+                    userId: node.assignedEngineer,
+                    message: `Workflow Unblocked: All dependencies for ${node.name} are resolved.`,
+                    type: 'DEPENDENCY_RESOLVED',
+                    severity: 'medium',
+                    actionUrl: `/workspace?blockId=${node._id}`,
+                    blockId: node._id
+                });
+            }
+        }
+    }
+    
+    return unblockedCount;
+};
+
+/**
+ * CORE EFFORT ESTIMATION ENGINE
+ * Formula: estimated_hours = base_hours * complexity_factor
+ */
+exports.calculateEstimation = (baseHours, complexity) => {
+    const factors = {
+        'SIMPLE': 1.0,
+        'MEDIUM': 1.5,
+        'COMPLEX': 2.5,
+        'CRITICAL': 4.0
+    };
+    
+    const factor = factors[complexity] || 1.0;
+    return Math.round((baseHours || 0) * factor);
+};
+
 exports.WORKFLOW_ORDER = WORKFLOW_ORDER;
-exports.STAGE_CRITICALITY = STAGE_CRITICALITY;
+

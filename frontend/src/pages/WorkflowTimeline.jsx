@@ -2,8 +2,9 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { 
     Search, User as UserIcon, Calendar, Filter, ChevronRight, 
     X, ArrowRight, CheckCircle2, AlertTriangle, Clock, Play,
-    MessageSquare, Layers, Info, Film
+    MessageSquare, Layers, Info, Film, Activity
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import './WorkflowTimeline.css';
 import SmartReplay from '../components/SmartReplay';
 
@@ -294,8 +295,14 @@ const WorkflowTimeline = ({ blocks = [], onUpdateStatus }) => {
                     </div>
 
                     {/* Block Rows */}
-                    {filteredBlocks.map(block => (
-                        <div key={block._id} className="timeline-row">
+                    {filteredBlocks.map((block, index) => (
+                        <motion.div 
+                            key={block._id} 
+                            className="timeline-row"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05, duration: 0.3 }}
+                        >
                             <div className="left-panel-cell" onClick={() => setSelectedBlock(block)} style={{ cursor: 'pointer' }}>
                                 <div>
                                     <div className="block-name">{block.name}</div>
@@ -313,35 +320,45 @@ const WorkflowTimeline = ({ blocks = [], onUpdateStatus }) => {
                                 {block.stageHistory?.map((hist, idx) => {
                                     const color = STAGE_COLORS[hist.stage] || STAGE_COLORS.NOT_STARTED;
                                     return (
-                                        <div 
+                                        <motion.div 
                                             key={idx}
-                                            className="task-bar"
+                                            className="task-bar cinematic-bar"
+                                            initial={{ scaleX: 0, originX: 0 }}
+                                            animate={{ scaleX: 1 }}
+                                            transition={{ duration: 0.5, delay: 0.2 + (idx * 0.1) }}
                                             style={{
                                                 left: getX(hist.startTime),
-                                                width: getW(hist.startTime, hist.endTime),
+                                                width: Math.max(2, getW(hist.startTime, hist.endTime)),
                                                 background: hexToRgba(color, 0.15),
                                                 border: `1px solid ${color}`,
-                                                color: color
+                                                color: color,
+                                                boxShadow: `0 0 10px ${hexToRgba(color, 0.2)}`
                                             }}
                                             title={`${hist.stage}: ${hist.durationHours?.toFixed(1)}h`}
                                         />
                                     );
                                 })}
                                 {block.status !== 'NOT_STARTED' && block.status !== 'COMPLETED' && (
-                                    <div 
-                                        className={`task-bar ${block.healthStatus !== 'HEALTHY' ? 'critical-segment' : ''}`}
+                                    <motion.div 
+                                        className={`task-bar cinematic-bar ${block.healthStatus !== 'HEALTHY' ? 'critical-segment' : ''}`}
+                                        initial={{ opacity: 0, scaleX: 0, originX: 0 }}
+                                        animate={{ opacity: 1, scaleX: 1 }}
+                                        transition={{ duration: 0.5, delay: 0.5 }}
                                         style={{
                                             left: getX(block.stageStartTime || block.updatedAt),
-                                            width: getW(block.stageStartTime || block.updatedAt, null),
-                                            background: hexToRgba(STAGE_COLORS[block.status], 0.15),
+                                            width: Math.max(4, getW(block.stageStartTime || block.updatedAt, null)),
+                                            background: hexToRgba(STAGE_COLORS[block.status], 0.25),
                                             border: `1px solid ${STAGE_COLORS[block.status]}`,
-                                            color: STAGE_COLORS[block.status]
+                                            color: STAGE_COLORS[block.status],
+                                            boxShadow: `0 0 15px ${hexToRgba(STAGE_COLORS[block.status], 0.4)}`
                                         }}
                                         title={`Current: ${block.status}`}
-                                    />
+                                    >
+                                        <div className="active-glow" style={{ background: STAGE_COLORS[block.status] }}></div>
+                                    </motion.div>
                                 )}
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
 
                     {/* Global Overlays */}

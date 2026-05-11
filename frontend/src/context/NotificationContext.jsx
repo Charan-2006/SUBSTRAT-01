@@ -13,8 +13,9 @@ export const NotificationProvider = ({ children }) => {
         if (!user) return;
         try {
             const res = await api.get('/notifications');
-            setNotifications(res.data.data);
-            setUnreadCount(res.data.data.filter(n => !n.read).length);
+            const data = res.data.data || [];
+            setNotifications(data);
+            setUnreadCount(data.filter(n => !n.read).length);
         } catch (err) {
             console.error('Error fetching notifications:', err);
         }
@@ -22,8 +23,8 @@ export const NotificationProvider = ({ children }) => {
 
     useEffect(() => {
         fetchNotifications();
-        // Poll every 60 seconds
-        const interval = setInterval(fetchNotifications, 60000);
+        // Poll every 3 seconds to match orchestration cycle
+        const interval = setInterval(fetchNotifications, 3000);
         return () => clearInterval(interval);
     }, [fetchNotifications]);
 
@@ -47,13 +48,24 @@ export const NotificationProvider = ({ children }) => {
         }
     };
 
+    const clearNotifications = async () => {
+        try {
+            await api.delete('/notifications');
+            setNotifications([]);
+            setUnreadCount(0);
+        } catch (err) {
+            console.error('Error clearing notifications:', err);
+        }
+    };
+
     return (
         <NotificationContext.Provider value={{ 
             notifications, 
             unreadCount, 
             fetchNotifications, 
             markAsRead, 
-            markAllAsRead 
+            markAllAsRead,
+            clearNotifications
         }}>
             {children}
         </NotificationContext.Provider>

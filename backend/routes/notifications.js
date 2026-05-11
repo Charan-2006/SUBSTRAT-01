@@ -93,4 +93,15 @@ router.post('/check-inactivity', protect, async (req, res) => {
     }
 });
 
+// @desc    Clear all notifications
+// @route   DELETE /api/notifications
+router.delete('/', protect, async (req, res) => {
+    try {
+        await Notification.deleteMany({ userId: req.user._id });
+        res.json({ success: true, message: 'All notifications cleared' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
 module.exports = router;

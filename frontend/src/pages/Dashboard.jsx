@@ -7,16 +7,31 @@ import EngineerDashboard from './EngineerDashboard';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import TimelinePanel from '../components/TimelinePanel';
-import AuditTrailModal from '../components/AuditTrailModal';
+import toast from 'react-hot-toast';
+import { OrchestrationProvider, useOrchestration } from '../context/OrchestrationContext';
+import { STAGES } from '../constants/workflowStates';
+import RejectionModal from '../components/RejectionModal';
 
 const Dashboard = () => {
     const { user, loading } = useContext(AuthContext);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // --- Shared data ---
-    const [blocks, setBlocks] = useState([]);
-    const [engineers, setEngineers] = useState([]);
+    const { 
+        blocks: contextBlocks = [], 
+        engineers: contextEngineers = [],
+        kpis = {},
+        fetchBlocks,
+        fetchEngineers,
+        createBlock,
+        updateBlockStatus,
+        assignEngineer,
+        unassignEngineer,
+        escalateBlock,
+        reviewBlock
+    } = useOrchestration();
+
+    // Use local state for analytics and requests as they aren't in orchestration context yet
     const [analytics, setAnalytics] = useState(null);
     const [requests, setRequests] = useState([]);
 
@@ -26,18 +41,9 @@ const Dashboard = () => {
 
     // --- UI state ---
     const [showForm, setShowForm] = useState(false);
-    const [showAuditTrail, setShowAuditTrail] = useState(false);
+    const [rejectionModal, setRejectionModal] = useState({ isOpen: false, blockId: null, blockName: '' });
     const [selectedBlock, setSelectedBlock] = useState(null);
-
-    // --- Data fetching ---
-    const fetchBlocks = useCallback(async () => {
-        try {
-            const res = await api.get('/blocks');
-            setBlocks(res.data.data);
-        } catch (err) {
-            console.error("Frontend error:", err);
-        }
-    }, []);
+    const [activeTab, setActiveTab] = useState('list');
 
     const fetchAnalytics = useCallback(async () => {
         try {
@@ -47,16 +53,6 @@ const Dashboard = () => {
             console.error("Frontend error:", err);
         }
     }, []);
-
-    const fetchEngineers = useCallback(async () => {
-        try {
-            const res = await api.get('/users');
-            setEngineers(res.data.data);
-        } catch (err) {
-            console.error("Frontend error:", err);
-        }
-    }, []);
-
     const fetchRequests = useCallback(async () => {
         try {
             const res = await api.get('/requests');
@@ -67,27 +63,29 @@ const Dashboard = () => {
     }, []);
 
     useEffect(() => {
-        fetchBlocks();
         fetchAnalytics();
-        fetchEngineers();
         fetchRequests();
+    }, [fetchAnalytics, fetchRequests, user?.role]);
 
-        // Check for inactivity if Manager
-        if (user?.role === 'Manager') {
-            api.post('/notifications/check-inactivity').catch(e => console.error("Inactivity check failed", e));
-        }
-    }, [fetchBlocks, fetchAnalytics, fetchEngineers, fetchRequests, user?.role]);
-
-    // Keep selectedBlock in sync with blocks data
+    // Handle deep-linking from notifications
     useEffect(() => {
-        if (selectedBlock) {
-            const updated = blocks.find(b => b._id === selectedBlock._id);
-            if (updated) setSelectedBlock(updated);
+        const params = new URLSearchParams(window.location.search);
+        const blockId = params.get('blockId');
+        if (blockId && contextBlocks.length > 0) {
+            const block = contextBlocks.find(b => b._id === blockId);
+            if (block) {
+                setSelectedBlock(block);
+                // Clear the param after opening to avoid re-opening on refresh if desired
+                // window.history.replaceState({}, document.title, window.location.pathname);
+            }
         }
-    }, [blocks]);
+    }, [contextBlocks]);
+
+    const blocks = contextBlocks;
+    const engineers = contextEngineers;
 
     // --- Filtered blocks ---
-    const filteredBlocks = blocks.filter(b => {
+    const filteredBlocks = contextBlocks.filter(b => {
         if (healthFilter !== 'ALL' && b.healthStatus !== healthFilter) return false;
         if (stageFilter && b.status !== stageFilter) return false;
         if (searchTerm) {
@@ -129,55 +127,117 @@ const Dashboard = () => {
 
     const handleCreateBlock = async (formData) => {
         console.log('[Action] Creating new block:', formData.name);
+        const toastId = toast.loading('Creating layout block...');
         try {
-            await api.post('/blocks', formData);
+            await createBlock(formData);
             setShowForm(false);
-            await fetchBlocks();
             await fetchAnalytics();
+            toast.success('Layout block created successfully', { id: toastId });
         } catch (err) {
             console.error("Create error:", err);
-            alert(err.response?.data?.message || "Something went wrong creating block");
+            toast.error(err.response?.data?.message || "Failed to create block", { id: toastId });
         }
     };
 
+    const handleImportBlocks = async (rows) => {
+        console.log(`[Action] Importing ${rows.length} blocks`);
+        for (const row of rows) {
+            try {
+                await api.post('/blocks', row);
+            } catch (err) {
+                console.error(`Import error for ${row.name}:`, err);
+            }
+        }
+        await fetchBlocks();
+        await fetchAnalytics();
+    };
+
     const handleAssign = async (blockId, engineerId) => {
-        if (!engineerId) return;
-        console.log(`[Action] Assigning block ${blockId} to engineer ${engineerId}`);
+        const toastId = toast.loading(engineerId ? 'Assigning engineer...' : 'Removing assignment...');
         try {
-            await api.put(`/blocks/${blockId}/assign`, { engineerId });
-            await fetchBlocks();
+            if (engineerId) {
+                await assignEngineer(blockId, engineerId);
+                toast.success('Engineer assigned successfully', { id: toastId });
+            } else {
+                await unassignEngineer(blockId);
+                toast.success('Assignment removed', { id: toastId });
+            }
             await fetchAnalytics();
         } catch (err) {
             console.error("Assign error:", err);
-            alert(err.response?.data?.message || "Something went wrong assigning engineer");
+            toast.error(err.response?.data?.message || "Failed to update assignment", { id: toastId });
         }
     };
 
     const handleReview = async (blockId, action, reason) => {
-        console.log(`[Action] Reviewing block ${blockId}: ${action}`, reason ? `Reason: ${reason}` : '');
+        if (action === 'REJECT' && !reason) {
+            toast.error('Please provide a rejection reason');
+            return;
+        }
+        const toastId = toast.loading(action === 'APPROVE' ? 'Approving workflow...' : 'Rejecting workflow...');
         try {
-            if (action === 'REJECT' && !reason) {
-                alert('Please provide a rejection reason');
-                return;
-            }
-            await api.put(`/blocks/${blockId}/review`, { action, rejectionReason: reason });
-            await fetchBlocks();
+            await reviewBlock(blockId, action, reason);
             await fetchAnalytics();
+            toast.success(action === 'APPROVE' ? 'Workflow approved' : 'Workflow reset to In Progress', { id: toastId });
         } catch (err) {
             console.error("Review error:", err);
-            alert(err.response?.data?.message || "Something went wrong reviewing block");
+            toast.error(err.response?.data?.message || "Failed to review workflow", { id: toastId });
+        }
+    };
+
+    const handleReviewRequest = (blockId, action, reason) => {
+        if (action === 'REJECT' && !reason) {
+            const b = blocks.find(x => x._id === blockId);
+            setRejectionModal({ isOpen: true, blockId, blockName: b?.name || 'Unknown Block' });
+        } else {
+            handleReview(blockId, action, reason);
         }
     };
 
     const handleUpdateStatus = async (blockId, newStatus) => {
-        console.log(`[Action] Updating block ${blockId} to ${newStatus}`);
+        const toastId = toast.loading('Updating workflow state...');
         try {
-            await api.put(`/blocks/${blockId}/status`, { status: newStatus });
+            await updateBlockStatus(blockId, newStatus);
             await fetchBlocks();
             await fetchAnalytics();
+            toast.success(`Workflow moved to ${newStatus}`, { id: toastId });
         } catch (err) {
             console.error("Status update error:", err);
-            alert(err.response?.data?.message || "Something went wrong updating status");
+            toast.error(err.response?.data?.message || "Failed to update workflow state", { id: toastId });
+        }
+    };
+
+    const handleEscalate = async (blockId) => {
+        const toastId = toast.loading('Escalating workflow...');
+        try {
+            await escalateBlock(blockId);
+            await fetchBlocks();
+            await fetchAnalytics();
+            toast.success('Workflow escalated successfully', { id: toastId });
+        } catch (err) {
+            console.error("Escalate error:", err);
+            toast.error(err.response?.data?.message || "Failed to escalate workflow", { id: toastId });
+        }
+    };
+
+    const handleResumeWorkflow = async (blockId) => {
+        const toastId = toast.loading('Executing workflow action...');
+        try {
+            const res = await api.post(`/blocks/${blockId}/resume`);
+            await fetchBlocks();
+            await fetchAnalytics();
+            
+            const { message, unblockedCount } = res.data;
+            toast.success(message, { id: toastId, duration: 4000 });
+            
+            if (unblockedCount > 0) {
+                setTimeout(() => {
+                    toast.success(`Orchestration update: ${unblockedCount} downstream nodes ready`, { icon: '🚀' });
+                }, 1000);
+            }
+        } catch (err) {
+            console.error("Resume error:", err);
+            toast.error(err.response?.data?.message || "Execution failed", { id: toastId });
         }
     };
 
@@ -235,20 +295,33 @@ const Dashboard = () => {
         setStageFilter(null);
     };
 
-    if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-tertiary)', fontSize: 14 }}>Loading...</div>;
-    if (!user) return <Navigate to="/" replace />;
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--bg-main)', color: 'var(--text-tertiary)', gap: 16 }}>
+                <div className="loading-spinner" />
+                <div style={{ fontSize: 13, fontWeight: 600 }}>Initializing Execution Platform...</div>
+            </div>
+        );
+    }
 
-    const isManager = user.role === 'Manager';
+    if (!user) {
+        console.warn('[Dashboard] No user found, redirecting to login.');
+        return <Navigate to="/" replace />;
+    }
+
+    const isManager = user?.role?.toUpperCase() === 'MANAGER';
 
     return (
-        <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-            <Navbar 
-                searchTerm={searchTerm} 
-                onSearchChange={setSearchTerm} 
-            />
+        <>
+            <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+                <Navbar 
+                    searchTerm={searchTerm} 
+                    onSearchChange={setSearchTerm}
+                    blocks={blocks}
+                    engineers={engineers}
+                />
             <div className="app-body">
                 <Sidebar
-                    blocks={blocks}
                     analytics={analytics}
                     requests={requests}
                     healthFilter={healthFilter}
@@ -256,19 +329,16 @@ const Dashboard = () => {
                     setFilter={setFilter}
                     clearFilters={clearFilters}
                     onNewBlock={() => setShowForm(true)}
-                    onViewLogs={() => setShowAuditTrail(true)}
+                    onViewLogs={() => setActiveTab('auditTrail')}
                     onLoadDemo={handleLoadDemo}
                     onResetDataset={handleResetDataset}
                     isManager={isManager}
                     isCollapsed={isSidebarCollapsed}
                     onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 />
-                <main className="app-main fade-in">
-                    {isManager ? (
+                    <main className="app-main fade-in">
+                     {isManager ? (
                         <ManagerDashboard
-                            blocks={blocks}
-                            filteredBlocks={filteredBlocks}
-                            engineers={engineers}
                             analytics={analytics}
                             requests={requests}
                             healthFilter={healthFilter}
@@ -279,38 +349,55 @@ const Dashboard = () => {
                             onAssign={handleAssign}
                             onReview={handleReview}
                             onUpdateStatus={handleUpdateStatus}
+                            onEscalate={handleEscalate}
                             onCreateRequest={handleCreateRequest}
                             onApproveRequest={handleApproveRequest}
                             onRejectRequest={handleRejectRequest}
                             selectedBlockId={selectedBlock?._id}
                             onSelectBlock={handleSelectBlock}
+                            activeTab={activeTab}
+                            setActiveTab={setActiveTab}
+                            isManager={isManager}
+                            onLoadDemo={handleLoadDemo}
+                            onResetDataset={handleResetDataset}
                         />
                     ) : (
                         <EngineerDashboard
                             user={user}
-                            blocks={blocks}
-                            filteredBlocks={filteredBlocks}
                             analytics={analytics}
-                            engineers={engineers}
                             requests={requests}
                             onUpdateStatus={handleUpdateStatus}
+                            onReview={handleReview}
+                            onResumeWorkflow={handleResumeWorkflow}
+                            onEscalate={handleEscalate}
                             onCreateRequest={handleCreateRequest}
                             selectedBlockId={selectedBlock?._id}
                             onSelectBlock={handleSelectBlock}
                         />
                     )}
-                </main>
-                {selectedBlock && (
-                    <TimelinePanel
-                        block={selectedBlock}
-                        onClose={() => setSelectedBlock(null)}
-                    />
-                )}
-                {showAuditTrail && (
-                    <AuditTrailModal onClose={() => setShowAuditTrail(false)} />
-                )}
+                    </main>
+                    {selectedBlock && (
+                        <TimelinePanel
+                            block={selectedBlock}
+                            onClose={() => setSelectedBlock(null)}
+                            onUpdateStatus={handleUpdateStatus}
+                            onReview={handleReviewRequest}
+                            onResumeWorkflow={handleResumeWorkflow}
+                            onEscalate={handleEscalate}
+                            isManager={isManager}
+                            user={user}
+                        />
+                    )}
+                </div>
             </div>
-        </div>
+
+            <RejectionModal 
+                isOpen={rejectionModal.isOpen}
+                onClose={() => setRejectionModal({ isOpen: false, blockId: null, blockName: '' })}
+                blockName={rejectionModal.blockName}
+                onConfirm={(reason) => handleReview(rejectionModal.blockId, 'REJECT', reason)}
+            />
+        </>
     );
 };
 

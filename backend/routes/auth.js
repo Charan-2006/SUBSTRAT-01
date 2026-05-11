@@ -13,7 +13,10 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 // @route   GET /api/auth/google/callback
 router.get(
     '/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login', session: false }),
+    (req, res, next) => {
+        const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+        passport.authenticate('google', { failureRedirect: `${frontendURL}/login?error=auth_failed`, session: false })(req, res, next);
+    },
     googleCallback
 );
 

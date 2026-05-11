@@ -1,7 +1,39 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, Component } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, PresentationControls, Environment, ContactShadows, Edges } from '@react-three/drei';
 import * as THREE from 'three';
+
+// --- Error Boundary for WebGL crashes ---
+class WebGLErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+    componentDidCatch(error, info) {
+        console.warn('AntigravityChip WebGL error caught:', error);
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ 
+                    width: '100%', height: '100%', minHeight: '400px', 
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 16
+                }}>
+                    <div style={{ textAlign: 'center', color: '#64748b', fontSize: 14 }}>
+                        <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }}>◇</div>
+                        3D visualization unavailable
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 // --- Shared Premium Materials ---
 const glassMaterial = new THREE.MeshPhysicalMaterial({
@@ -165,11 +197,14 @@ const Scene = () => {
 const AntigravityChip = () => {
     return (
         <div style={{ width: '100%', height: '100%', minHeight: '400px', background: '#FFFFFF' }}>
-            <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 0, 8], fov: 40 }}>
-                <Scene />
-            </Canvas>
+            <WebGLErrorBoundary>
+                <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 0, 8], fov: 40 }}>
+                    <Scene />
+                </Canvas>
+            </WebGLErrorBoundary>
         </div>
     );
 };
 
 export default AntigravityChip;
+

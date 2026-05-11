@@ -3,13 +3,17 @@ const {
     createBlock,
     getBlocks,
     assignEngineer,
+    unassignEngineer,
     updateStatus,
     reviewBlock,
     getBlockLogs,
     loadDemoData,
     resetDataset,
     getAnalytics,
-    getGlobalLogs
+    getGlobalLogs,
+    escalateBlock,
+    resumeWorkflow,
+    updateBlock
 } = require('../controllers/blockController');
 
 const { protect } = require('../middleware/auth');
@@ -23,6 +27,11 @@ router.use(protect);
 // @route   POST /api/blocks
 // @desc    Create a new block (Manager only)
 router.post('/', authorize('Manager'), createBlock);
+
+// @route   PUT /api/blocks/:id
+// @desc    Update a block (Manager only)
+router.put('/:id', authorize('Manager'), updateBlock);
+
 
 // @route   GET /api/blocks
 // @desc    Get blocks (Manager and Engineer)
@@ -48,9 +57,17 @@ router.put('/:id/assign', authorize('Manager'), assignEngineer);
 // @desc    Update block status (Engineer only)
 router.put('/:id/status', authorize('Engineer'), updateStatus);
 
+// @route   POST /api/blocks/:id/resume
+// @desc    Resume workflow execution (Engineer only)
+router.post('/:id/resume', authorize('Engineer'), resumeWorkflow);
+
 // @route   PUT /api/blocks/:id/review
 // @desc    Approve or reject a block (Manager only)
 router.put('/:id/review', authorize('Manager'), reviewBlock);
+
+// @route   PUT /api/blocks/:id/escalate
+// @desc    Escalate a block (Manager only)
+router.put('/:id/escalate', authorize('Manager'), escalateBlock);
 
 // @route   GET /api/blocks/:id/logs
 // @desc    Get audit logs for a specific block

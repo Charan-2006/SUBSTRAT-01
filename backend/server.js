@@ -25,6 +25,10 @@ const startServer = async () => {
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`Redirecting to frontend at: ${process.env.FRONTEND_URL}`);
+            
+            // Start simulation engine
+            const { startSimulation } = require('./services/simulationEngine');
+            startSimulation();
         });
     } catch (err) {
         console.error('Failed to start server:', err);

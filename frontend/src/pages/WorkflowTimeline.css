@@ -165,14 +165,35 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     cursor: pointer;
-    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+    transition: box-shadow 0.2s ease, opacity 0.2s ease;
     z-index: 10;
 }
 
-.task-bar:hover {
-    transform: scaleY(1.05) scaleX(1.01);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+.cinematic-bar {
+    position: absolute;
+}
+
+.cinematic-bar:hover {
     z-index: 20;
+    opacity: 0.9;
+}
+
+.active-glow {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+    mask-image: linear-gradient(to right, transparent, black);
+    -webkit-mask-image: linear-gradient(to right, transparent, black);
+    animation: pulseGlow 2s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+    0% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.3; }
 }
 
 .critical-segment {

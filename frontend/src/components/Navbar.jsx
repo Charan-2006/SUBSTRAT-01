@@ -3,6 +3,8 @@ import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { Search, Bell, Sun, Moon, LogOut, Layout, User as UserIcon, Activity } from 'lucide-react';
+import NotificationPanel from './NotificationPanel';
+
 import './Navbar.css';
 
 const Navbar = ({ searchTerm, onSearchChange, blocks = [], engineers = [] }) => {
@@ -11,6 +13,7 @@ const Navbar = ({ searchTerm, onSearchChange, blocks = [], engineers = [] }) => 
     const { unreadCount } = useContext(NotificationContext);
     
     const [showDropdown, setShowDropdown] = useState(false);
+    const [showNotifs, setShowNotifs] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
     const dropdownRef = useRef(null);
 
@@ -134,7 +137,7 @@ const Navbar = ({ searchTerm, onSearchChange, blocks = [], engineers = [] }) => 
                     </div>
                 </div>
                 
-                <div className="nav-icon-btn" style={{ position: 'relative' }}>
+                <div className="nav-icon-btn" style={{ position: 'relative' }} onClick={() => setShowNotifs(!showNotifs)}>
                     <Bell size={20} />
                     {unreadCount > 0 && <span className="notification-dot">{unreadCount}</span>}
                 </div>
@@ -145,6 +148,8 @@ const Navbar = ({ searchTerm, onSearchChange, blocks = [], engineers = [] }) => 
                     <LogOut size={14} style={{ marginLeft: 4, opacity: 0.6 }} />
                 </div>
             </div>
+
+            <NotificationPanel isOpen={showNotifs} onClose={() => setShowNotifs(false)} />
         </nav>
     );
 };

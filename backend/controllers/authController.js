@@ -40,7 +40,8 @@ const sendTokenResponse = (user, statusCode, res) => {
 exports.googleCallback = (req, res) => {
     // req.user is set by passport after successful authentication
     if (!req.user) {
-        return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+        const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+        return res.redirect(`${frontendURL}/login?error=auth_failed`);
     }
 
     // Generate JWT and send it via cookie
@@ -58,7 +59,8 @@ exports.googleCallback = (req, res) => {
     res.cookie('token', token, options);
     
     // Redirect to frontend dashboard
-    res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+    const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendURL}/dashboard`);
 };
 
 // @desc    Get current logged in user
@@ -93,7 +95,7 @@ exports.logout = (req, res, next) => {
 // @access  Private (Manager only)
 exports.getEngineers = async (req, res, next) => {
     try {
-        const users = await User.find({ role: 'Engineer' }).select('_id displayName email');
+        const users = await User.find({ role: 'Engineer' }).select('_id displayName email role');
         res.status(200).json({
             success: true,
             count: users.length,

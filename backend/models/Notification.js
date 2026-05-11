@@ -12,8 +12,20 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['ASSIGNMENT', 'REJECTION', 'COMPLETION', 'INACTIVITY', 'SYSTEM'],
+        enum: [
+            'ASSIGNMENT', 'REASSIGNMENT', 'STAGE_CHANGE', 'REVIEW_REQUEST', 
+            'APPROVAL', 'REJECTION', 'ESCALATION', 'SLA_VIOLATION', 
+            'BOTTLENECK', 'DEPENDENCY_RESOLVED', 'OPTIMIZATION', 'SYSTEM'
+        ],
         default: 'SYSTEM'
+    },
+    severity: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'critical'],
+        default: 'medium'
+    },
+    actionUrl: {
+        type: String
     },
     blockId: {
         type: mongoose.Schema.Types.ObjectId,
