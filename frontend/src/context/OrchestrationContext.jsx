@@ -12,6 +12,7 @@ const OrchestrationContext = createContext();
 export const OrchestrationProvider = ({ children, initialBlocks = [], initialEngineers = [] }) => {
     const [blocks, setBlocks] = useState(initialBlocks);
     const [engineers, setEngineers] = useState(initialEngineers);
+    const [requests, setRequests] = useState([]);
 
     const [activityLog, setActivityLog] = useState([]);
 
@@ -106,6 +107,16 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
         }
     }, []);
 
+    const fetchRequests = useCallback(async () => {
+        try {
+            const res = await api.get('/requests');
+            const data = res.data?.data || [];
+            setRequests(data);
+        } catch (err) {
+            console.error("Context fetchRequests error:", err);
+        }
+    }, []);
+
     const updateBlockStatus = useCallback(async (blockId, newStatus) => {
         try {
             await api.put(`/blocks/${blockId}/status`, { status: newStatus });
@@ -173,9 +184,13 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
     useEffect(() => {
         fetchBlocks();
         fetchEngineers();
-        const intervalId = setInterval(fetchBlocks, 3000);
+        fetchRequests();
+        const intervalId = setInterval(() => {
+            fetchBlocks();
+            fetchRequests();
+        }, 3000);
         return () => clearInterval(intervalId);
-    }, [fetchBlocks, fetchEngineers]);
+    }, [fetchBlocks, fetchEngineers, fetchRequests]);
 
     const importBlocks = useCallback(async (newBlocks) => {
         try {
@@ -199,6 +214,29 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
         }
     }, [fetchBlocks, logActivity]);
 
+    const deleteBlock = useCallback(async (blockId) => {
+        try {
+            await api.delete(`/blocks/${blockId}`);
+            logActivity('block_deleted', blockId, {});
+            await fetchBlocks();
+        } catch (err) {
+            console.error("Context Delete error:", err);
+        }
+    }, [logActivity, fetchBlocks]);
+
+    const releaseBlock = useCallback(async (blockId) => {
+        try {
+            const res = await api.put(`/blocks/${blockId}/release`);
+            const updatedBlock = res.data.data;
+            logActivity('released', blockId, {});
+            setBlocks(prev => prev.map(b => b._id === blockId ? updatedBlock : b));
+            return updatedBlock;
+        } catch (err) {
+            console.error("Context Release error:", err);
+            throw err;
+        }
+    }, [logActivity]);
+
     const value = {
         blocks: enrichedBlocks,
         rawBlocks: blocks,
@@ -211,13 +249,15 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
         unassignEngineer,
         escalateBlock,
         importBlocks,
-        setBlocks,
-        setEngineers,
+        requests,
+        fetchRequests,
         fetchBlocks,
         fetchEngineers,
         createBlock,
         reviewBlock,
-        onUpdateBlock
+        onUpdateBlock,
+        deleteBlock,
+        releaseBlock
     };
 
     return (

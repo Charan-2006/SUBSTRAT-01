@@ -190,23 +190,46 @@ const LandingPage = () => {
                         <div className="lp-preview-dot red" />
                         <div className="lp-preview-dot yellow" />
                         <div className="lp-preview-dot green" />
+                        <div className="lp-preview-header-title">SUBSTRAT — Phase Navigator</div>
                     </div>
 
                     <div className="lp-preview-content">
+                        {/* Phase Navigation Bar */}
+                        <div className="lp-phase-navigator">
+                            {[
+                                { id: 'NS', label: 'Start', status: 'completed' },
+                                { id: 'IP', label: 'Layout', status: 'completed' },
+                                { id: 'DRC', label: 'DRC', status: 'active' },
+                                { id: 'LVS', label: 'LVS', status: 'pending' },
+                                { id: 'RV', label: 'Review', status: 'pending' },
+                                { id: 'CP', label: 'Signoff', status: 'pending' }
+                            ].map((phase, i) => (
+                                <div key={i} className={`lp-phase-node ${phase.status}`}>
+                                    <div className="lp-phase-dot" />
+                                    <span className="lp-phase-label">{phase.label}</span>
+                                    {i < 5 && <div className="lp-phase-connector" />}
+                                </div>
+                            ))}
+                        </div>
+
                         {/* Context Header */}
                         <div className="lp-preview-context-header">
                             <div>
-                                <h3 className="lp-preview-context-title">Live Workflow Timeline</h3>
-                                <p className="lp-preview-context-subtitle">Track every block from design to signoff</p>
+                                <h3 className="lp-preview-context-title">Orchestration Intelligence</h3>
+                                <p className="lp-preview-context-subtitle">Real-time status tracking across all 6 validation phases</p>
                             </div>
                             <div className="lp-preview-live-indicator">
-                                <span className="lp-live-dot" /> Live
+                                <span className="lp-live-dot" /> Phase 3: DRC Analysis
                             </div>
                         </div>
 
                         {/* Structured Rows */}
                         <div className="lp-preview-rows-wrapper">
-                            {mockRows.map((row, i) => (
+                            {[
+                                { name: 'ADC_CORE_01', stage: 'DRC', progress: 55, health: 'Healthy' },
+                                { name: 'BIAS_GEN_TOP', stage: 'IN_PROGRESS', progress: 100, health: 'Healthy' },
+                                { name: 'PLL_SYNTH_04', stage: 'LVS', progress: 15, health: 'Warning' }
+                            ].map((row, i) => (
                                 <motion.div 
                                     key={i} 
                                     className="lp-mock-row"
@@ -216,31 +239,25 @@ const LandingPage = () => {
                                     transition={{ delay: 0.1 * i, duration: 0.5 }}
                                 >
                                     <div className="lp-mock-row-header">
-                                        <div className="lp-mock-block-name">{row.name}</div>
-                                        <motion.div 
-                                            className="lp-mock-badge" 
-                                            style={{ background: `${row.color}15`, color: row.color, border: `1px solid ${row.color}30` }}
-                                            initial={{ opacity: 0, scale: 0.9 }}
-                                            whileInView={{ opacity: 1, scale: 1 }}
-                                            viewport={{ once: true }}
-                                            transition={{ delay: 0.5 + (i * 0.1), duration: 0.4 }}
-                                        >
-                                            {row.status}
-                                        </motion.div>
-                                    </div>
-                                        <div className="lp-mock-bar-container">
-                                            <motion.div 
-                                                className="lp-mock-bar-fill" 
-                                                style={{ 
-                                                    background: `linear-gradient(90deg, #6366f1, #4F46E5)`, 
-                                                    boxShadow: `0 0 10px rgba(79,70,229,0.3)`
-                                                }}
-                                                initial={{ width: '0%' }}
-                                                whileInView={{ width: row.barWidth }}
-                                                viewport={{ once: true }}
-                                                transition={{ delay: 0.2 + (i * 0.1), duration: 1.5, ease: "easeOut" }}
-                                            />
+                                        <div className="lp-mock-block-info">
+                                            <div className="lp-mock-block-name">{row.name}</div>
+                                            <div className={`lp-mock-health ${row.health.toLowerCase()}`}>{row.health}</div>
                                         </div>
+                                        <div className="lp-mock-stage-badge">{row.stage}</div>
+                                    </div>
+                                    <div className="lp-mock-bar-container">
+                                        <motion.div 
+                                            className="lp-mock-bar-fill" 
+                                            style={{ 
+                                                width: `${row.progress}%`,
+                                                background: row.health === 'Warning' ? 'var(--amber)' : 'var(--accent)'
+                                            }}
+                                            initial={{ width: '0%' }}
+                                            whileInView={{ width: `${row.progress}%` }}
+                                            viewport={{ once: true }}
+                                            transition={{ delay: 0.3 + (i * 0.1), duration: 1.2, ease: "easeOut" }}
+                                        />
+                                    </div>
                                 </motion.div>
                             ))}
                         </div>

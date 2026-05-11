@@ -16,7 +16,7 @@ router.route('/')
 
 // Using inline authorize for Manager only on status update
 const isManager = (req, res, next) => {
-    if (req.user && req.user.role === 'Manager') {
+    if (req.user && req.user.role && req.user.role.toUpperCase() === 'MANAGER') {
         next();
     } else {
         res.status(403).json({ success: false, message: 'Not authorized to perform this action' });

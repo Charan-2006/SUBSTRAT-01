@@ -6,11 +6,26 @@ import {
 } from '../../utils/workflowEngine';
 import { STAGES } from '../../constants/workflowStates';
 
-const WorkflowBanner = ({ blocks = [] }) => {
+const WorkflowBanner = ({ blocks = [], requests = [], onApproveRequest, onRejectRequest }) => {
     const insights = useMemo(() => {
         const result = [];
 
-        // 1. Dependency blockages (Highest Priority)
+        // 0. Pending Action Requests (Highest Priority for Manager)
+        const pending = (requests || []).filter(r => r.status === 'PENDING');
+        pending.forEach(req => {
+            const block = blocks.find(b => b._id === req.blockId);
+            result.push({
+                id: `req_${req._id}`,
+                severity: 'critical',
+                icon: Info,
+                text: `REQUEST: ${req.type || 'General'} by ${req.requestedBy?.displayName || 'Engineer'} for ${block?.name || 'Global'} — "${req.reason || req.description || req.message || 'No justification provided'}"`,
+                priority: -1, 
+                isRequest: true,
+                requestId: req._id
+            });
+        });
+
+        // 1. Dependency blockages
         const blockedBlocks = blocks.filter(b => b.health === 'CRITICAL' || b.health === 'BOTTLENECK');
         blockedBlocks.forEach(b => {
             const directBlockers = (b.inheritedBlockers || []).map(id => blocks.find(x => x._id === id || x.id === id)).filter(u => u && u.status !== STAGES.COMPLETED);
@@ -53,7 +68,6 @@ const WorkflowBanner = ({ blocks = [] }) => {
         }
 
         // 3. Engineer overload
-        // Get unique assigned engineers
         const engineers = [...new Set(blocks.map(b => b.assignedEngineer?._id || b.assignedEngineer).filter(Boolean))];
         const overloaded = [];
         engineers.forEach(id => {
@@ -75,7 +89,7 @@ const WorkflowBanner = ({ blocks = [] }) => {
         }
 
         return result.sort((a, b) => a.priority - b.priority).slice(0, 3);
-    }, [blocks]);
+    }, [blocks, requests]);
 
     if (insights.length === 0) return null;
 
@@ -84,10 +98,18 @@ const WorkflowBanner = ({ blocks = [] }) => {
     return (
         <div className="ws-banner">
             {insights.map(insight => (
-                <div key={insight.id} className={`ws-banner-item ${cls[insight.severity]}`}>
+                <div key={insight.id} className={`ws-banner-item ${cls[insight.severity]} ${insight.isRequest ? 'actionable' : ''}`}>
                     <insight.icon size={14} style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1 }}>{insight.text}</span>
-                    <ArrowRight size={12} style={{ opacity: 0.4, flexShrink: 0 }} />
+                    
+                    {insight.isRequest ? (
+                        <div className="banner-actions">
+                            <button className="banner-btn approve" onClick={(e) => { e.stopPropagation(); onApproveRequest?.(insight.requestId); }}>Approve</button>
+                            <button className="banner-btn reject" onClick={(e) => { e.stopPropagation(); onRejectRequest?.(insight.requestId); }}>Reject</button>
+                        </div>
+                    ) : (
+                        <ArrowRight size={12} style={{ opacity: 0.4, flexShrink: 0 }} />
+                    )}
                 </div>
             ))}
         </div>

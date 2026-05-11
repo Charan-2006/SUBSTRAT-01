@@ -1,14 +1,27 @@
 const mongoose = require('mongoose');
 
 const RequestSchema = new mongoose.Schema({
+    type: {
+        type: String,
+        required: [true, 'Please add a request type'],
+        enum: ['Reassignment', 'Escalation', 'Resource Request', 'Dependency Unlock', 'Load Balancing', 'General'],
+        default: 'General'
+    },
     title: {
         type: String,
-        required: [true, 'Please add a request title'],
         trim: true,
+    },
+    reason: {
+        type: String,
+        required: [true, 'Please provide a reason/justification'],
     },
     description: {
         type: String,
         trim: true,
+    },
+    blockId: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Block'
     },
     priority: {
         type: String,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronRight, Link2, AlertTriangle, UserPlus, CheckCircle, XCircle, Search, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Link2, AlertTriangle, UserPlus, CheckCircle, XCircle, Search, ArrowRight, Trash2 } from 'lucide-react';
 import { STAGES, STAGE_COLORS, HEALTH_STATES } from '../../constants/workflowStates';
 import { 
     calculateHealth, calculateDependencyImpact, calculateSLA, calculateProgress,
@@ -159,11 +159,13 @@ const WorkflowTable = ({
     onOpenDrawer,
     onAssign,
     onReview,
+    onStatusUpdate,
     onEscalate,
     engineers = [],
     sortField,
     sortOrder,
     onSort,
+    onDelete,
 }) => {
     const [assignPopoverId, setAssignPopoverId] = React.useState(null);
     const renderSortHeader = (field, label, width) => (
@@ -377,6 +379,20 @@ const WorkflowTable = ({
                                                 
                                                 <button className="btn btn-sm" style={{ padding: '4px 8px', fontSize: 10 }} onClick={() => onOpenDrawer?.(block)}>
                                                     Details
+                                                </button>
+
+                                                <button 
+                                                    className="btn btn-sm" 
+                                                    style={{ padding: '4px 6px', color: 'var(--red)', border: '1px solid rgba(255, 59, 48, 0.2)' }} 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        if (window.confirm(`CRITICAL ACTION: Are you sure you want to delete ${block.name}? This will terminate any active engineer work and remove all logs associated with this block.`)) {
+                                                            onDelete?.(block._id);
+                                                        }
+                                                    }} 
+                                                    title="Delete Block"
+                                                >
+                                                    <Trash2 size={12} />
                                                 </button>
                                             </div>
                                         </td>

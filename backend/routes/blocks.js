@@ -13,7 +13,9 @@ const {
     getGlobalLogs,
     escalateBlock,
     resumeWorkflow,
-    updateBlock
+    updateBlock,
+    deleteBlock,
+    releaseBlock
 } = require('../controllers/blockController');
 
 const { protect } = require('../middleware/auth');
@@ -31,7 +33,9 @@ router.post('/', authorize('Manager'), createBlock);
 // @route   PUT /api/blocks/:id
 // @desc    Update a block (Manager only)
 router.put('/:id', authorize('Manager'), updateBlock);
-
+// @route   DELETE /api/blocks/:id
+// @desc    Delete a block (Manager only)
+router.delete('/:id', authorize('Manager'), deleteBlock);
 
 // @route   GET /api/blocks
 // @desc    Get blocks (Manager and Engineer)
@@ -68,6 +72,10 @@ router.put('/:id/review', authorize('Manager'), reviewBlock);
 // @route   PUT /api/blocks/:id/escalate
 // @desc    Escalate a block (Manager only)
 router.put('/:id/escalate', authorize('Manager'), escalateBlock);
+
+// @route   PUT /api/blocks/:id/release
+// @desc    Release a block to tapeout/archived state (Manager only)
+router.put('/:id/release', authorize('Manager'), releaseBlock);
 
 // @route   GET /api/blocks/:id/logs
 // @desc    Get audit logs for a specific block

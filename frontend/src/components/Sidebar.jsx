@@ -15,7 +15,7 @@ const Sidebar = ({
             <div className="sidebar-brand">
                 {!isCollapsed && (
                     <div className="logo-tagline-container">
-                        <img src="/logo-text.png" alt="Substrat" className="logo-tagline" />
+                        <span className="logo-tagline">STRUCTURE. VISIBILITY. CLARITY.</span>
                     </div>
                 )}
                 <button 

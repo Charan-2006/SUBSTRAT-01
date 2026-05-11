@@ -159,8 +159,8 @@ const Scene = () => {
                 position={[5, 10, 5]} 
                 intensity={1} 
                 castShadow 
-                shadow-mapSize-width={1024} 
-                shadow-mapSize-height={1024} 
+                shadow-mapSize-width={512} 
+                shadow-mapSize-height={512} 
             />
 
             <PresentationControls 
@@ -172,7 +172,7 @@ const Scene = () => {
                 <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
                     <group rotation={[Math.PI / 6, -Math.PI / 4, 0]}>
                         <SubstrateBase />
-                        <FloatingBlocks count={30} />
+                        <FloatingBlocks count={22} />
                     </group>
                 </Float>
             </PresentationControls>

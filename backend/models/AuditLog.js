@@ -13,7 +13,7 @@ const AuditLogSchema = new mongoose.Schema({
     action: {
         type: String,
         required: [true, 'Please provide an action type'],
-        enum: ['CREATE', 'ASSIGN', 'REASSIGN', 'UNASSIGN', 'STATUS_UPDATE', 'APPROVE', 'REJECT', 'ESCALATE']
+        enum: ['CREATE', 'ASSIGN', 'REASSIGN', 'UNASSIGN', 'STATUS_UPDATE', 'APPROVE', 'REJECT', 'ESCALATE', 'DELETE']
     },
     blockId: {
         type: mongoose.Schema.ObjectId,

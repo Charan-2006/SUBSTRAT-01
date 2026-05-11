@@ -1,5 +1,5 @@
 .sidebar {
-    width: 180px;
+    width: 200px;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
@@ -12,7 +12,7 @@
 .sidebar-brand {
     display: flex;
     align-items: center;
-    padding: 0 16px;
+    padding: 0 12px;
     height: var(--navbar-height);
     border-bottom: 1px solid var(--border);
     position: relative;
@@ -28,10 +28,13 @@
 }
 
 .logo-tagline {
-    height: 18px;
-    max-width: 100%;
-    object-fit: contain;
-    opacity: 0.8;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    text-transform: uppercase;
+    display: block;
 }
 
 .sidebar-collapse-btn {
@@ -116,6 +119,28 @@
 .sidebar-filter-item--active {
     background: var(--accent-subtle) !important;
     color: var(--accent) !important;
+}
+
+[data-theme="dark"] .sidebar {
+    background: linear-gradient(180deg, #161B22 0%, #0D1117 100%);
+    border-right-color: #30363D;
+}
+
+[data-theme="dark"] .sidebar-brand {
+    border-bottom-color: #30363D;
+}
+
+[data-theme="dark"] .sidebar-filter-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .sidebar-filter-item--active {
+    background: rgba(56, 139, 253, 0.15) !important;
+    color: #58A6FF !important;
+}
+
+[data-theme="dark"] .sidebar-section-label {
+    color: #484F58;
 }
 
 /* Ensure the app-shell knows how to handle the collapsed state */

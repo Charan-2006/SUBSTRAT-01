@@ -188,9 +188,13 @@ const BlockSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    isReleased: {
+        type: Boolean,
+        default: false
+    },
     executionState: {
         type: String,
-        enum: ['NOT_STARTED', 'READY', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'ESCALATED', 'COMPLETE'],
+        enum: ['NOT_STARTED', 'READY', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'ESCALATED', 'COMPLETE', 'RELEASED'],
         default: 'NOT_STARTED'
     },
     telemetry: {

@@ -9,6 +9,9 @@ import WorkspaceTab from './workspace/WorkspaceTab';
 import IntelligencePanel from './workspace/IntelligencePanel';
 import { motion } from 'framer-motion';
 import { useOrchestration } from '../context/OrchestrationContext';
+import { 
+    Layers, Zap, Clock, PlayCircle, BarChart3, BookOpen, History 
+} from 'lucide-react';
 
 const ManagerDashboard = ({
     blocks = [],
@@ -29,12 +32,15 @@ const ManagerDashboard = ({
     onApproveRequest,
     onRejectRequest,
     selectedBlockId,
+    selectedBlockEditMode = false,
     onSelectBlock,
     activeTab,
     setActiveTab,
     isManager,
     onLoadDemo,
-    onResetDataset
+    onResetDataset,
+    onDeleteBlock,
+    onRelease
 }) => {
     const { 
         blocks: contextBlocks = [], 
@@ -86,20 +92,43 @@ const ManagerDashboard = ({
                 </div>
                 <div className="header-bar-tabs segmented-nav">
                     {[
-                        { id: 'list', label: 'Workspace' },
-                        { id: 'controlCenter', label: 'Control Center' },
-                        { id: 'timeline', label: 'Timeline' },
-                        { id: 'execution', label: 'Execution' },
-                        { id: 'priorityEngine', label: 'Priority Engine' },
-                        { id: 'knowledgeBase', label: 'Knowledge Base' },
-                        { id: 'auditTrail', label: 'Audit Trail' }
+                        { id: 'list', label: 'Workspace', icon: Layers },
+                        { id: 'controlCenter', label: 'Control Center', icon: Zap },
+                        { id: 'timeline', label: 'Timeline', icon: Clock },
+                        { id: 'execution', label: 'Execution', icon: PlayCircle },
+                        { id: 'priorityEngine', label: 'Priority Engine', icon: BarChart3 },
+                        { id: 'knowledgeBase', label: 'Knowledge Base', icon: BookOpen },
+                        { id: 'auditTrail', label: 'Audit Trail', icon: History }
                     ].map(tab => (
                         <div
                             key={tab.id}
                             className={`segmented-tab ${activeTab === tab.id ? 'active' : ''}`}
                             onClick={() => setActiveTab(tab.id)}
                         >
+                            <tab.icon size={14} className="tab-icon" />
                             {tab.label}
+                            {tab.id === 'list' && (requests || []).filter(r => r.status === 'PENDING').length > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: -4,
+                                    right: -8,
+                                    background: 'var(--red)',
+                                    color: 'white',
+                                    fontSize: 9,
+                                    fontWeight: 900,
+                                    minWidth: 16,
+                                    height: 16,
+                                    borderRadius: 8,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '0 4px',
+                                    border: '2px solid var(--surface)',
+                                    zIndex: 10
+                                }}>
+                                    {(requests || []).filter(r => r.status === 'PENDING').length}
+                                </span>
+                            )}
                             {activeTab === tab.id && (
                                 <motion.div
                                     layoutId="managerNavIndicator"
@@ -127,9 +156,14 @@ const ManagerDashboard = ({
                     onEscalate={onEscalate}
                     onSelectBlock={onSelectBlock}
                     selectedBlockId={selectedBlockId}
+                    selectedBlockEditMode={selectedBlockEditMode}
                     isManager={isManager}
                     onLoadDemo={onLoadDemo}
                     onResetDataset={onResetDataset}
+                    onDeleteBlock={onDeleteBlock}
+                    requests={requests}
+                    onApproveRequest={onApproveRequest}
+                    onRejectRequest={onRejectRequest}
                 />
             )}
 
@@ -158,7 +192,7 @@ const ManagerDashboard = ({
                     )}
 
                     {activeTab === 'execution' && (
-                        <ExecutionTab blocks={displayBlocks} engineers={displayEngineers} onSelectBlock={onSelectBlock} onAssign={onAssign} onReview={onReview} />
+                        <ExecutionTab blocks={displayBlocks} engineers={displayEngineers} onSelectBlock={onSelectBlock} onAssign={onAssign} onReview={onReview} onRelease={onRelease} />
                     )}
 
                     {activeTab === 'priorityEngine' && (
@@ -180,6 +214,9 @@ const ManagerDashboard = ({
                 <IntelligencePanel
                     collapsed={intelCollapsed} 
                     onToggle={() => setIntelCollapsed(!intelCollapsed)}
+                    requests={requests}
+                    onApproveRequest={onApproveRequest}
+                    onRejectRequest={onRejectRequest}
                 />
             )}
         </div>

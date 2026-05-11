@@ -817,3 +817,106 @@
     .lp-hero-cta { flex-direction: column; }
     .lp-hero-cta .lp-btn { width: 100%; max-width: 300px; }
 }
+
+/* --- Phase Navigator --- */
+.lp-phase-navigator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--lp-bg-subtle);
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 32px;
+    border: 1px solid var(--lp-border);
+}
+
+.lp-phase-node {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+
+.lp-phase-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    transition: all 0.3s ease;
+    z-index: 2;
+    border: 2px solid white;
+}
+
+.lp-phase-node.completed .lp-phase-dot {
+    background: #22c55e;
+}
+
+.lp-phase-node.active .lp-phase-dot {
+    background: var(--lp-accent);
+    box-shadow: 0 0 0 4px var(--lp-accent-glow);
+    transform: scale(1.2);
+}
+
+.lp-phase-label {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--lp-text-tertiary);
+    letter-spacing: 0.08em;
+}
+
+.lp-phase-node.active .lp-phase-label {
+    color: var(--lp-text);
+}
+
+.lp-phase-connector {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background: #f1f5f9;
+    z-index: 1;
+}
+
+.lp-phase-node.completed .lp-phase-connector {
+    background: #dcfce7;
+}
+
+.lp-mock-block-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.lp-mock-health {
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.lp-mock-health.healthy { color: #22c55e; }
+.lp-mock-health.warning { color: #f59e0b; }
+
+.lp-mock-stage-badge {
+    padding: 3px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--lp-text-secondary);
+}
+
+.lp-preview-header-title {
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--lp-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}

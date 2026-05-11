@@ -98,7 +98,7 @@ const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview,
                                 </button>
                             )}
 
-                            {!block.escalated && (
+                            {isManager && !block.escalated && (
                                 <button 
                                     className="ew-b b-red"
                                     onClick={() => onEscalate?.(block._id)}

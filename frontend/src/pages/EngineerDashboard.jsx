@@ -64,8 +64,8 @@ const EngineerDashboard=({user,requests=[],analytics,onCreateRequest,onUpdateSta
                 <div className="ew-page">
                     {tab==='my-work'&&<EngMyWork {...p}/>}
                     {tab==='timeline'&&<EngTimeline {...p}/>}
-                    {tab==='execution' && <EngExecution {...p} onResumeWorkflow={onResumeWorkflow} onEscalate={onEscalate} />}
-                    {tab==='blockers' && <EngBlockers {...p} onEscalate={onEscalate} />}
+                    {tab==='execution' && <EngExecution {...p} onResumeWorkflow={onResumeWorkflow} />}
+                    {tab==='blockers' && <EngBlockers {...p} />}
                     {tab==='reviews'&&<EngReviews {...p}/>}
                     {tab==='knowledge'&&<EngKnowledge {...p}/>}
                     {tab==='requests'&&<EngRequests {...p}/>}

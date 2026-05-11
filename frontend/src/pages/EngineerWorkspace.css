@@ -517,3 +517,106 @@
   .ew-header { flex-direction: column; align-items: flex-start; gap: 16px; }
   .ew-rec { grid-template-columns: 1fr; }
 }
+/* ─── INTELLIGENCE CARDS (Contextual Guidance) ────────── */
+.kb-intel-card {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 14px 18px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.kb-intel-card:hover {
+    border-color: var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transform: translateY(-1px);
+}
+
+.kb-intel-card.expanded {
+    cursor: default;
+    border-color: var(--accent-subtle);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+/* Severity Borders */
+.kb-intel-card.sev-critical { border-left: 4px solid var(--red); }
+.kb-intel-card.sev-high { border-left: 4px solid var(--red); }
+.kb-intel-card.sev-medium { border-left: 4px solid var(--amber); }
+.kb-intel-card.sev-nominal { border-left: 4px solid var(--accent); }
+
+.kb-intel-header { display: flex; gap: 14px; align-items: flex-start; }
+.kb-intel-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+
+.kb-intel-main { flex: 1; min-width: 0; }
+.kb-intel-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.kb-intel-title { font-size: 14px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+.kb-intel-subtitle { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-tertiary); font-weight: 600; }
+
+.kb-intel-tag {
+    font-size: 8px; font-weight: 800; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em;
+}
+.tag-critical, .tag-high { background: var(--red-bg); color: var(--red-text); }
+.tag-medium { background: var(--amber-bg); color: var(--amber-text); }
+.tag-nominal { background: var(--accent-subtle); color: var(--accent); }
+
+.kb-intel-chevron { color: var(--text-tertiary); transition: transform 0.2s; }
+.kb-intel-chevron.open { transform: rotate(90deg); }
+
+.kb-intel-summary { margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.kb-intel-card.expanded .kb-intel-summary { color: var(--text-primary); font-weight: 600; }
+
+/* Expanded Sections */
+.kb-intel-details {
+    margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+    animation: kbFade 0.2s ease-out;
+    display: flex; flex-direction: column; gap: 16px;
+}
+
+.kb-detail-section { display: flex; flex-direction: column; gap: 8px; }
+.kb-detail-lbl { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.06em; }
+
+.kb-checklist { display: flex; flex-direction: column; gap: 6px; }
+.kb-check-item { display: flex; gap: 10px; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+.kb-tags-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.kb-violation-tag {
+    font-size: 10px; font-weight: 600; background: var(--bg);
+    border: 1px solid var(--border-light); padding: 3px 10px; border-radius: 12px;
+    color: var(--text-secondary);
+}
+
+.kb-feedback-bubble {
+    background: var(--bg); padding: 12px 16px; border-radius: 10px;
+    border-left: 3px solid var(--red); display: flex; gap: 12px;
+    font-size: 12px; color: var(--text-secondary); line-height: 1.5; font-style: italic;
+}
+
+.kb-warning-banner {
+    background: rgba(239, 68, 68, 0.05); color: #dc2626; padding: 10px 14px;
+    border-radius: 8px; font-size: 12px; font-weight: 600; display: flex; gap: 10px; align-items: center;
+}
+
+.kb-dep-list { display: flex; flex-direction: column; gap: 6px; }
+.kb-dep-node {
+    display: flex; align-items: center; gap: 8px; font-size: 11px;
+    color: var(--text-tertiary); font-weight: 600;
+}
+
+.kb-intel-actions { display: flex; gap: 8px; margin-top: 8px; }
+.kb-intel-btn {
+    display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700;
+    padding: 8px 14px; border-radius: 8px; background: var(--bg);
+    border: 1px solid var(--border-light); color: var(--text-primary);
+    cursor: pointer; transition: all 0.12s;
+}
+.kb-intel-btn:hover { border-color: var(--accent); color: var(--accent); background: white; }
+
+.intelligence-footer { text-align: center; }

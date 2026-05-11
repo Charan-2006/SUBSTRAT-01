@@ -20,6 +20,25 @@
     --cc-border-glow: rgba(0, 122, 255, 0.4);
 }
 
+[data-theme="dark"] {
+    --cc-bg: #0D1117;
+    --cc-sidebar-bg: #161B22;
+    --cc-border: #30363D;
+    --cc-border-strong: #484F58;
+    --cc-text-pri: #F0F6FC;
+    --cc-text-sec: #8B949E;
+    --cc-text-ter: #6E7681;
+    --cc-accent: #58A6FF;
+    --cc-accent-soft: rgba(88, 166, 255, 0.15);
+    --cc-success: #3FB950;
+    --cc-warning: #D29922;
+    --cc-danger: #F85149;
+    --cc-danger-deep: #F85149;
+    --cc-shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.4);
+    --cc-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --cc-border-glow: rgba(88, 166, 255, 0.4);
+}
+
 .cc-redesign-container {
     display: grid;
     grid-template-columns: 320px 1fr 320px;
@@ -73,7 +92,7 @@
 .cc-select {
     width: 100%;
     padding: 10px 12px;
-    background: #fff;
+    background: var(--cc-bg);
     border: 1px solid var(--cc-border-strong);
     border-radius: 8px;
     font-size: 14px;
@@ -111,14 +130,14 @@
 }
 
 .cc-tab.active {
-    background: #fff;
+    background: var(--cc-bg);
     color: var(--cc-text-pri);
     box-shadow: var(--cc-shadow-sm);
 }
 
 /* ========== Summary Cards ========== */
 .cc-summary-card {
-    background: #fff;
+    background: var(--cc-bg);
     border: 1px solid var(--cc-border-strong);
     border-radius: 12px;
     padding: 16px;
@@ -186,7 +205,7 @@
 /* ========== Workspace ========== */
 .cc-workspace {
     flex: 1;
-    background: #ffffff;
+    background: var(--cc-bg);
     position: relative;
     overflow: auto;
     display: flex;
@@ -199,7 +218,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #fff;
+    background: var(--cc-bg);
     z-index: 10;
     position: sticky;
     top: 0;
@@ -224,7 +243,7 @@
 /* ========== Node Graph ========== */
 .cc-node {
     width: 200px;
-    background: #fff;
+    background: var(--cc-bg);
     border: 1.5px solid var(--cc-border-strong);
     border-radius: 10px;
     padding: 12px;
@@ -340,7 +359,7 @@
 .cc-action-btn {
     width: 100%;
     padding: 10px;
-    background: #fff;
+    background: var(--cc-bg);
     border: 1px solid var(--cc-border-strong);
     border-radius: 8px;
     font-size: 13px;
@@ -387,7 +406,7 @@
 }
 
 .cc-insight-card-compact {
-    background: #fff;
+    background: var(--cc-bg);
     border: 1px solid var(--cc-border-strong);
     border-radius: 12px;
     padding: 14px;
@@ -484,7 +503,7 @@
 .cc-monitor-track {
     flex: 1;
     height: 8px;
-    background: #f2f2f7;
+    background: var(--cc-border);
     border-radius: 4px;
     position: relative;
     overflow: hidden;
@@ -550,7 +569,7 @@
 }
 
 .cc-tab-v2.active {
-    background: #fff;
+    background: var(--cc-bg);
     color: var(--cc-accent);
     box-shadow: var(--cc-shadow-sm);
 }
@@ -583,7 +602,7 @@
 
 .cc-history-item {
     padding: 8px;
-    background: #fff;
+    background: var(--cc-bg);
     border: 1px solid var(--cc-border);
     border-radius: 6px;
 }
@@ -610,6 +629,27 @@
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+[data-theme="dark"] .cc-primary-btn {
+    background: var(--cc-accent);
+    color: #000;
+}
+
+[data-theme="dark"] .cc-primary-btn:hover {
+    background: var(--cc-accent-hover);
+}
+
+[data-theme="dark"] .cc-canvas {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+[data-theme="dark"] .cc-edge {
+    stroke: #30363D;
+}
+
+[data-theme="dark"] .cc-tab-v2:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .custom-scrollbar::-webkit-scrollbar {

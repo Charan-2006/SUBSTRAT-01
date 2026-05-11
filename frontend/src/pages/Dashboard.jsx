@@ -28,12 +28,14 @@ const Dashboard = () => {
         assignEngineer,
         unassignEngineer,
         escalateBlock,
-        reviewBlock
+        reviewBlock,
+        deleteBlock,
+        releaseBlock,
+        requests = [],
+        fetchRequests
     } = useOrchestration();
 
-    // Use local state for analytics and requests as they aren't in orchestration context yet
     const [analytics, setAnalytics] = useState(null);
-    const [requests, setRequests] = useState([]);
 
     // --- Filter state ---
     const [healthFilter, setHealthFilter] = useState('ALL');
@@ -43,6 +45,7 @@ const Dashboard = () => {
     const [showForm, setShowForm] = useState(false);
     const [rejectionModal, setRejectionModal] = useState({ isOpen: false, blockId: null, blockName: '' });
     const [selectedBlock, setSelectedBlock] = useState(null);
+    const [selectedBlockEditMode, setSelectedBlockEditMode] = useState(false);
     const [activeTab, setActiveTab] = useState('list');
 
     const fetchAnalytics = useCallback(async () => {
@@ -53,19 +56,9 @@ const Dashboard = () => {
             console.error("Frontend error:", err);
         }
     }, []);
-    const fetchRequests = useCallback(async () => {
-        try {
-            const res = await api.get('/requests');
-            setRequests(res.data.data);
-        } catch (err) {
-            console.error("Frontend error:", err);
-        }
-    }, []);
-
     useEffect(() => {
         fetchAnalytics();
-        fetchRequests();
-    }, [fetchAnalytics, fetchRequests, user?.role]);
+    }, [fetchAnalytics, user?.role]);
 
     // Handle deep-linking from notifications
     useEffect(() => {
@@ -220,6 +213,30 @@ const Dashboard = () => {
         }
     };
 
+    const handleDeleteBlock = async (blockId) => {
+        const toastId = toast.loading('Deleting layout block...');
+        try {
+            await deleteBlock(blockId);
+            await fetchAnalytics();
+            toast.success('Block permanently removed from orchestration', { id: toastId });
+        } catch (err) {
+            console.error("Delete error:", err);
+            toast.error(err.response?.data?.message || "Failed to delete block", { id: toastId });
+        }
+    };
+
+    const handleRelease = async (blockId) => {
+        const toastId = toast.loading('Releasing workflow to tapeout...');
+        try {
+            await releaseBlock(blockId);
+            await fetchAnalytics();
+            toast.success('Workflow released successfully', { id: toastId });
+        } catch (err) {
+            console.error("Release error:", err);
+            toast.error(err.response?.data?.message || "Failed to release workflow", { id: toastId });
+        }
+    };
+
     const handleResumeWorkflow = async (blockId) => {
         const toastId = toast.loading('Executing workflow action...');
         try {
@@ -242,10 +259,16 @@ const Dashboard = () => {
     };
 
     const handleCreateRequest = async (formData) => {
-        console.log('[Action] Creating new request:', formData.title);
+        console.log('[Action] Creating new request:', formData.type);
         try {
-            await api.post('/requests', formData);
+            // Map type to title for legacy compatibility and better indexing
+            const payload = {
+                ...formData,
+                title: formData.title || formData.type
+            };
+            await api.post('/requests', payload);
             await fetchRequests();
+            toast.success('Request dispatched to management');
         } catch (err) {
             console.error("Create request error:", err);
             alert(err.response?.data?.message || "Something went wrong creating request");
@@ -255,7 +278,17 @@ const Dashboard = () => {
     const handleApproveRequest = async (requestId) => {
         console.log('[Action] Approving request:', requestId);
         try {
+            const request = requests.find(r => r._id === requestId);
             await api.put(`/requests/${requestId}/status`, { status: 'APPROVED' });
+            
+            if (request && request.type === 'Reassignment' && request.blockId) {
+                const targetBlock = blocks.find(b => b._id === request.blockId);
+                if (targetBlock) {
+                    setSelectedBlock(targetBlock);
+                    setSelectedBlockEditMode(true);
+                }
+            }
+
             await fetchRequests();
             await fetchBlocks();
             await fetchAnalytics();
@@ -279,6 +312,7 @@ const Dashboard = () => {
     // --- Block selection for detail panel ---
     const handleSelectBlock = (block) => {
         setSelectedBlock(prev => prev?._id === block._id ? null : block);
+        setSelectedBlockEditMode(false);
     };
 
     // --- Filter helpers ---
@@ -354,12 +388,15 @@ const Dashboard = () => {
                             onApproveRequest={handleApproveRequest}
                             onRejectRequest={handleRejectRequest}
                             selectedBlockId={selectedBlock?._id}
+                            selectedBlockEditMode={selectedBlockEditMode}
                             onSelectBlock={handleSelectBlock}
                             activeTab={activeTab}
                             setActiveTab={setActiveTab}
                             isManager={isManager}
                             onLoadDemo={handleLoadDemo}
                             onResetDataset={handleResetDataset}
+                            onDeleteBlock={handleDeleteBlock}
+                            onRelease={handleRelease}
                         />
                     ) : (
                         <EngineerDashboard

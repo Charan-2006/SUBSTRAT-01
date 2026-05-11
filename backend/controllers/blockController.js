@@ -762,3 +762,94 @@ exports.loadDemoData = async (req, res, next) => {
         next(error);
     }
 };
+// @desc    Delete a block
+// @route   DELETE /api/blocks/:id
+// @access  Private (Manager only)
+exports.deleteBlock = async (req, res, next) => {
+    try {
+        const block = await Block.findById(req.params.id);
+
+        if (!block) {
+            return res.status(404).json({ success: false, message: 'Block not found' });
+        }
+
+        const assignedEngineerId = block.assignedEngineer;
+        const blockName = block.name;
+
+        // 1. Notify engineer if assigned
+        if (assignedEngineerId) {
+            await createNotification({
+                userId: assignedEngineerId,
+                message: `CRITICAL ALERT: Workflow ${blockName} has been deleted by management. Any active execution for this block has been terminated.`,
+                type: 'SYSTEM',
+                severity: 'high',
+                blockId: block._id
+            });
+        }
+
+        // 2. Log Action
+        await logAction({
+            userId: req.user.id,
+            userRole: req.user.role,
+            action: 'DELETE',
+            blockId: block._id,
+            previousValue: blockName,
+            newValue: null,
+            message: `Workflow block ${blockName} deleted by manager.`
+        });
+
+        // 3. Delete the block
+        await Block.findByIdAndDelete(req.params.id);
+
+        res.status(200).json({ success: true, data: {} });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Release a block to tapeout
+// @route   PUT /api/blocks/:id/release
+// @access  Private (Manager only)
+exports.releaseBlock = async (req, res, next) => {
+    try {
+        const block = await Block.findById(req.params.id);
+
+        if (!block) {
+            return res.status(404).json({ success: false, message: 'Block not found' });
+        }
+
+        // Only COMPLETED blocks can be released
+        if (block.status !== 'COMPLETED') {
+            return res.status(400).json({ success: false, message: 'Only completed workflows can be released to tapeout' });
+        }
+
+        block.isReleased = true;
+        block.executionState = 'RELEASED';
+        await block.save();
+
+        // Notify engineer
+        if (block.assignedEngineer) {
+            await createNotification({
+                userId: block.assignedEngineer,
+                message: `SUCCESS: Workflow ${block.name} has been released to Tapeout. Execution terminated successfully.`,
+                type: 'SYSTEM',
+                severity: 'low',
+                blockId: block._id
+            });
+        }
+
+        // Log Action
+        await logAction({
+            userId: req.user.id,
+            userRole: req.user.role,
+            action: 'RELEASE',
+            blockId: block._id,
+            message: `Workflow block ${block.name} released to tapeout by manager.`
+        });
+
+        res.status(200).json({ success: true, data: block });
+    } catch (error) {
+        next(error);
+    }
+};
+

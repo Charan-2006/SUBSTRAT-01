@@ -399,6 +399,46 @@
     color: var(--amber-text);
 }
 
+.ws-banner-item.actionable {
+    padding-right: 8px;
+}
+
+.banner-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 12px;
+}
+
+.banner-btn {
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid currentColor;
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+.banner-btn.approve {
+    color: var(--green);
+}
+.banner-btn.approve:hover {
+    background: var(--green);
+    color: white;
+    border-color: var(--green);
+}
+
+.banner-btn.reject {
+    color: var(--red);
+}
+.banner-btn.reject:hover {
+    background: var(--red);
+    color: white;
+    border-color: var(--red);
+}
+
 .ws-banner-info {
     background: var(--accent-subtle);
     border: 1px solid rgba(0, 82, 204, 0.15);
@@ -945,4 +985,272 @@
 .engineer-item:hover .engineer-assign-icon {
     opacity: 1;
     transform: translateX(0);
+}
+
+/* --- Intelligence Panel Cards --- */
+.intel-card {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.intel-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    border-color: var(--border);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+}
+
+.card-header.amber { color: var(--amber); }
+.card-header.red { color: var(--red); }
+.card-header.purple { color: #7c3aed; }
+
+/* --- Requests Engine --- */
+.requests-engine {
+    border-left: 3px solid #7c3aed;
+}
+
+.requests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.request-item {
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.request-item:hover {
+    border-color: #7c3aed50;
+    background: white;
+}
+
+.request-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.request-meta {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-bottom: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.meta-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+}
+
+.meta-row strong {
+    color: var(--text-primary);
+}
+
+.request-reason-box {
+    margin-top: 6px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 4px;
+    border-left: 2px solid var(--border);
+}
+
+.reason-label {
+    font-size: 8px;
+    font-weight: 800;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+}
+
+.reason-text {
+    font-size: 11.5px;
+    color: var(--text-primary);
+    line-height: 1.4;
+    font-weight: 500;
+}
+
+.request-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.req-btn {
+    flex: 1;
+    padding: 5px;
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    background: white;
+}
+
+.req-btn.approve {
+    color: var(--green);
+}
+.req-btn.approve:hover {
+    background: var(--green);
+    color: white;
+    border-color: var(--green);
+}
+
+.req-btn.reject {
+    color: var(--red);
+}
+.req-btn.reject:hover {
+    background: var(--red);
+    color: white;
+    border-color: var(--red);
+}
+
+/* --- Signal Items (shared) --- */
+.signal-item {
+    padding: 8px 10px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.signal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.signal-header .name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.signal-header .badge {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.signal-meta {
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.empty-signal {
+    padding: 12px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* --- Dark Mode Specific Premium Refinements --- */
+[data-theme="dark"] .ws-kpi-card {
+ background: linear-gradient(145deg, #22272B 0%, #1D2125 100%);
+ border-color: #3C444C;
+ box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .ws-kpi-card:hover {
+ border-color: var(--accent);
+ box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .ws-table-wrap {
+ background: #161B22;
+ border-color: #30363D;
+}
+
+[data-theme="dark"] .ws-table thead th {
+ background: #0D1117;
+ border-bottom-color: #30363D;
+}
+
+[data-theme="dark"] .ws-table tbody td {
+ border-bottom-color: #21262D;
+}
+
+[data-theme="dark"] .ws-table tbody tr:hover {
+ background: #21262D;
+}
+
+[data-theme="dark"] .ws-table tbody tr.selected {
+ background: rgba(88, 166, 255, 0.1);
+}
+
+[data-theme="dark"] .ws-intel-panel {
+ border-left-color: #30363D;
+ background: rgba(13, 17, 23, 0.3);
+}
+
+[data-theme="dark"] .ws-intel-card {
+ background: #161B22;
+ border-color: #30363D;
+}
+
+[data-theme="dark"] .ws-drawer {
+ background: #161B22;
+ box-shadow: -12px 0 40px rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="dark"] .ws-drawer-header {
+ border-bottom-color: #30363D;
+}
+
+[data-theme="dark"] .ws-metric-card {
+ background: #0D1117;
+ border-color: #21262D;
+}
+
+[data-theme="dark"] .ws-stage-line {
+ background: #30363D;
+}
+
+[data-theme="dark"] .ws-graph-node {
+ background: #0D1117;
+ border-color: #30363D;
+}
+
+[data-theme="dark"] .ws-toolbar-search {
+ background: #0D1117;
+ border-color: #30363D;
+}
+
+[data-theme="dark"] .ws-pill {
+ background: #161B22;
+ border-color: #30363D;
+}
+
+[data-theme="dark"] .ws-pill:hover {
+ background: #21262D;
+ border-color: #8B949E;
 }

@@ -21,11 +21,16 @@ const WorkspaceTab = ({
     onReview,
     onUpdateStatus,
     onEscalate,
-    onSelectBlock,
-    selectedBlockId,
     isManager,
     onLoadDemo,
-    onResetDataset
+    onResetDataset,
+    onDeleteBlock,
+    selectedBlockId,
+    selectedBlockEditMode = false,
+    onSelectBlock,
+    requests = [],
+    onApproveRequest,
+    onRejectRequest
 }) => {
     const blocks = incomingBlocks;
     const engineers = incomingEngineers;
@@ -58,6 +63,16 @@ const WorkspaceTab = ({
         name: '', type: BLOCK_TYPES[0], description: '', techNode: TECH_NODES[TECH_NODES.length - 1], 
         complexity: 'SIMPLE', baseHours: 0, estimatedArea: 0, priority: 1, dependencies: [], assignedEngineer: ''
     });
+
+    // Auto-open drawer when selectedBlockId changes (e.g. from approving a request)
+    React.useEffect(() => {
+        if (selectedBlockId) {
+            const block = blocks.find(b => b._id === selectedBlockId);
+            if (block) {
+                setDrawerBlock(block);
+            }
+        }
+    }, [selectedBlockId, blocks]);
 
     const handleSort = useCallback((field) => {
         if (sortField === field) {
@@ -207,7 +222,14 @@ const WorkspaceTab = ({
                 setViewMode={setViewMode}
                 isManager={isManager}
             />
-                <WorkflowBanner blocks={blocks} analytics={analytics} engineers={engineers} />
+                <WorkflowBanner 
+                    blocks={blocks} 
+                    analytics={analytics} 
+                    engineers={engineers} 
+                    requests={requests}
+                    onApproveRequest={onApproveRequest}
+                    onRejectRequest={onRejectRequest}
+                />
                 <KpiStrip blocks={blocks} analytics={analytics} engineers={engineers} />
 
                 {/* Create Block Form */}
@@ -324,17 +346,20 @@ const WorkspaceTab = ({
                     sortField={sortField}
                     sortOrder={sortOrder}
                     onSort={handleSort}
+                    onDelete={onDeleteBlock}
                 />
 
             {drawerBlock && (
                 <BlockDetailsDrawer
                     block={drawerBlock}
+                    allBlocks={blocks}
                     engineers={engineers}
                     onAssign={onAssign}
                     onReview={onReview}
                     onUpdateStatus={onUpdateStatus}
                     onEscalate={onEscalate}
                     startWithRejection={drawerRejectMode}
+                    startInEditMode={selectedBlockEditMode}
                     isManager={isManager}
                     onClose={() => { setDrawerBlock(null); setDrawerRejectMode(false); }}
                 />

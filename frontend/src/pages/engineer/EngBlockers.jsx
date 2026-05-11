@@ -118,9 +118,7 @@ const EngBlockers = ({ active = [], onSelectBlock, onEscalate, blocks = [] }) =>
                                             </div>
                                             <div className="ew-wf-footer" onClick={e => e.stopPropagation()}>
                                                 <button className="ew-b" onClick={() => onSelectBlock?.(bl.block)}><ChevronRight size={12} /> View Dependencies</button>
-                                                {!bl.block.escalated ? (
-                                                    <button className="ew-b b-red" onClick={() => onEscalate?.(bl.block._id)}><AlertTriangle size={12} /> Escalate</button>
-                                                ) : (
+                                                {bl.block.escalated && (
                                                     <span className="ew-t t-red">Escalated</span>
                                                 )}
                                             </div>

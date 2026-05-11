@@ -1,32 +1,34 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, Link2, Users, Zap, Clock, BarChart3, TrendingUp, Layers } from 'lucide-react';
-import { 
-    calculateBottleneck, calculateHealth, calculateDependencyImpact, 
-    calculateEngineerLoad, calculateSLA
-} from '../../utils/workflowEngine';
-import { HEALTH_STATES, STAGES, HEALTH_LABELS } from '../../constants/workflowStates';
+import { AlertTriangle, Link2, Users, Zap, Clock, BarChart3, TrendingUp, Layers, ChevronRight } from 'lucide-react';
+import { HEALTH_STATES } from '../../constants/workflowStates';
 import { useOrchestration } from '../../context/OrchestrationContext';
+import { formatDuration } from '../../utils/workflowEngine';
 
-const IntelligencePanel = ({ collapsed, onToggle }) => {
+const IntelligencePanel = ({ collapsed, requests = [], onApproveRequest, onRejectRequest }) => {
     const { 
-        blocks: contextBlocks = [], 
+        blocks = [], 
         kpis = {} 
     } = useOrchestration();
-    const blocks = contextBlocks;
+
+    const pendingRequests = useMemo(() => {
+        return (requests || []).filter(r => r.status === 'PENDING').map(r => {
+            const block = blocks.find(b => b._id === r.blockId);
+            return { ...r, blockName: block?.name || 'Global Request' };
+        });
+    }, [requests, blocks]);
 
     const bottlenecks = useMemo(() => {
+// ... (rest of useMemo logic remains the same)
         return blocks
             .filter(b => b.health === HEALTH_STATES.BOTTLENECK)
-            .map(b => {
-                return {
-                    id: b.id, 
-                    name: b.name, 
-                    stage: b.currentStage,
-                    delayHours: b.delayHours,
-                    impactCount: b.downstream?.length || 0,
-                    risk: b.telemetry?.propagationRisk || 0
-                };
-            })
+            .map(b => ({
+                id: b._id || b.id, 
+                name: b.name, 
+                stage: b.currentStage,
+                delayHours: b.delayHours,
+                impactCount: b.telemetry?.downstreamImpact || 0,
+                risk: b.telemetry?.propagationRisk || 0
+            }))
             .sort((a, b) => b.risk - a.risk)
             .slice(0, 5);
     }, [blocks]);
@@ -34,28 +36,26 @@ const IntelligencePanel = ({ collapsed, onToggle }) => {
     const slaRisks = useMemo(() => {
         return blocks
             .filter(b => b.health === HEALTH_STATES.CRITICAL && b.health !== HEALTH_STATES.BOTTLENECK)
-            .map(b => {
-                return {
-                    id: b.id,
-                    name: b.name,
-                    stage: b.currentStage,
-                    stagnation: b.telemetry?.stagnationIndex || 0,
-                    rejections: b.rejectionCount || 0,
-                    pressure: b.telemetry?.executionPressure || 0
-                };
-            })
-            .sort((a, b) => b.stagnation - a.stagnation)
+            .map(b => ({
+                id: b._id || b.id,
+                name: b.name,
+                stage: b.currentStage,
+                stagnation: b.telemetry?.stagnationIndex || 0,
+                rejections: b.rejectionCount || 0,
+                pressure: b.telemetry?.executionPressure || 0
+            }))
+            .sort((a, b) => b.pressure - a.pressure)
             .slice(0, 5);
     }, [blocks]);
 
     const depAlerts = useMemo(() => {
         const alerts = [];
         blocks.forEach(block => {
-            if (block.health === 'CRITICAL' || block.health === 'BOTTLENECK' || block.inheritedRisk > 0.3) {
-                const blockers = (block.inheritedBlockers || []).map(id => blocks.find(x => x.id === id)).filter(Boolean);
+            if (block.inheritedRisk > 0.1) {
+                const blockers = (block.inheritedBlockers || []).map(id => blocks.find(x => (x._id || x.id) === id)).filter(Boolean);
                 blockers.forEach(blocker => {
                     alerts.push({
-                        id: `${block.id}_${blocker.id}`,
+                        id: `${(block._id || block.id)}_${(blocker._id || blocker.id)}`,
                         blocked: block.name, 
                         blocker: blocker.name,
                         risk: Math.round(block.inheritedRisk * 100),
@@ -64,213 +64,238 @@ const IntelligencePanel = ({ collapsed, onToggle }) => {
                 });
             }
         });
-        return alerts.slice(0, 5);
+        return alerts.sort((a, b) => b.risk - a.risk).slice(0, 5);
     }, [blocks]);
 
     const escalations = useMemo(() => {
         return blocks
             .filter(b => b.isEscalated)
-            .map(b => {
-                return {
-                    id: b.id,
-                    name: b.name,
-                    state: b.escalationState,
-                    priority: b.priorityScore,
-                    impactReduction: b.telemetry?.propagationRisk ? Math.round(b.telemetry.propagationRisk * 0.4) : 0
-                };
-            });
+            .map(b => ({
+                id: b._id || b.id,
+                name: b.name,
+                state: b.escalationState,
+                priority: b.priorityScore,
+                impactReduction: Math.round((b.telemetry?.propagationRisk || 0) * 0.4)
+            }))
+            .sort((a, b) => b.priority - a.priority);
+    }, [blocks]);
+
+    const distribution = useMemo(() => {
+        const stages = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
+        return stages.map(s => {
+            const count = blocks.filter(b => b.status === s).length;
+            const percent = blocks.length > 0 ? (count / blocks.length) * 100 : 0;
+            return { stage: s, count, percent };
+        });
     }, [blocks]);
 
     return (
         <div className={`ws-intel-panel ${collapsed ? 'collapsed' : ''}`}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Zap size={14} style={{ color: 'var(--accent)' }} />
-                    <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                        Intelligence
-                    </span>
+            <div className="intel-panel-header">
+                <div className="header-main">
+                    <Zap size={14} className="zap-icon" />
+                    <span>Orchestration Intelligence</span>
                 </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* 0. Effort Metrics Summary */}
-                <div className="intel-section" style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                        <BarChart3 size={14} style={{ color: 'var(--accent)' }} />
-                        <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-primary)' }}>Effort Orchestration</span>
+            <div className="intel-scroll-area">
+                {/* 1. EXECUTION EFFORT ENGINE */}
+                <div className="intel-card effort-engine">
+                    <div className="card-header">
+                        <BarChart3 size={14} />
+                        <span>Effort Telemetry</span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: 4, border: '1px solid var(--border-light)' }}>
-                            <div style={{ fontSize: 9, color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Total Effort</div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{kpis.totalEstimatedHours || 0}h</div>
-                            <div style={{ fontSize: 8, color: 'var(--text-tertiary)', marginTop: 2 }}>Est. Project Work</div>
+                    <div className="metrics-compact-grid">
+                        <div className="metric-box">
+                            <label>Remaining</label>
+                            <value className="amber">{formatDuration(kpis.totalRemainingEffort)}</value>
+                            <subLabel>To Complete</subLabel>
                         </div>
-                        <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: 4, border: '1px solid var(--border-light)' }}>
-                            <div style={{ fontSize: 9, color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Actual Logged</div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent)' }}>{(kpis.totalActualHours || 0).toFixed(1)}h</div>
-                            <div style={{ fontSize: 8, color: 'var(--text-tertiary)', marginTop: 2 }}>Execution Time</div>
+                        <div className="metric-box">
+                            <label>Actual Logged</label>
+                            <value className="accent">{formatDuration(kpis.totalActualHours)}</value>
+                            <subLabel>Real-time Dev</subLabel>
                         </div>
-                        <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: 4, border: '1px solid var(--border-light)' }}>
-                            <div style={{ fontSize: 9, color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Remaining</div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--amber)' }}>{kpis.totalRemainingEffort || 0}h</div>
-                            <div style={{ fontSize: 8, color: 'var(--text-tertiary)', marginTop: 2 }}>Work to Complete</div>
+                        <div className="metric-box">
+                            <label>SLA Variance</label>
+                            <value className={kpis.totalVariance > 0 ? 'red' : 'green'}>
+                                {kpis.totalVariance > 0 ? `+${formatDuration(kpis.totalVariance)}` : '0.0h'}
+                            </value>
+                            <subLabel>Project Drift</subLabel>
                         </div>
-                        <div style={{ background: 'var(--surface)', padding: '8px 10px', borderRadius: 4, border: '1px solid var(--border-light)' }}>
-                            <div style={{ fontSize: 9, color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Utilization</div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: kpis.avgUtilization > 85 ? 'var(--red)' : 'var(--green)' }}>{kpis.avgUtilization || 0}%</div>
-                            <div style={{ fontSize: 8, color: 'var(--text-tertiary)', marginTop: 2 }}>Team Bandwidth</div>
+                        <div className="metric-box">
+                            <label>Utilization</label>
+                            <value className={kpis.avgUtilization > 85 ? 'red' : 'green'}>{kpis.avgUtilization}%</value>
+                            <subLabel>Team Load</subLabel>
                         </div>
                     </div>
                     
                     {kpis.overdueCount > 0 && (
-                        <div style={{ marginTop: 10, padding: '6px 10px', background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <AlertTriangle size={12} style={{ color: 'var(--red)' }} />
-                            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--red)' }}>{kpis.overdueCount} BLOCKS OVERDUE SLA</span>
+                        <div className="critical-alert-bar">
+                            <AlertTriangle size={12} />
+                            <span>{kpis.overdueCount} BLOCKS BREACHED SLA</span>
                         </div>
                     )}
                 </div>
 
-                {/* 0.5. Resource Alerts */}
-                {(kpis.totalUnassigned > 0 || kpis.overloadedEngineers > 0) && (
-                    <div className="intel-section" style={{ border: '1px solid var(--red)', background: 'rgba(239, 68, 68, 0.05)' }}>
-                        <div className="intel-header" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--red)', letterSpacing: '0.04em' }}>
-                            <Users size={12} style={{ color: 'var(--red)' }} />
-                            <span>Resource Alerts</span>
-                        </div>
-                        {kpis.totalUnassigned > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--surface)', borderRadius: 4, marginBottom: 4 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>Unassigned Blocks</span>
-                                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--red)' }}>{kpis.totalUnassigned}</span>
-                            </div>
-                        )}
-                        {kpis.overloadedEngineers > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--surface)', borderRadius: 4 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>Overloaded Eng.</span>
-                                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--red)' }}>{kpis.overloadedEngineers}</span>
-                            </div>
-                        )}
+                {/* 2. WORKFLOW DISTRIBUTION */}
+                <div className="intel-card">
+                    <div className="card-header">
+                        <Layers size={14} />
+                        <span>Workflow Distribution</span>
                     </div>
-                )}
-
-                {/* 0.7. Pending Approvals Queue */}
-                {blocks.some(b => b.status === 'REVIEW') && (
-                    <div className="intel-section" style={{ border: '1px solid var(--purple)', background: 'rgba(124, 58, 237, 0.05)' }}>
-                        <div className="intel-header" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--purple)', letterSpacing: '0.04em' }}>
-                            <Clock size={12} style={{ color: 'var(--purple)' }} />
-                            <span>Approval Queue</span>
-                        </div>
-                        {blocks.filter(b => b.status === 'REVIEW').slice(0, 3).map(b => (
-                            <div key={b._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--surface)', borderRadius: 4, marginBottom: 4 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{b.name}</span>
-                                <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--purple)', background: 'var(--purple-bg)', padding: '2px 6px', borderRadius: 4 }}>REVIEW</span>
+                    <div className="dist-list">
+                        {distribution.map(d => (
+                            <div key={d.stage} className="dist-item">
+                                <div className="dist-info">
+                                    <span className="stage-lbl">{d.stage.replace(/_/g, ' ')}</span>
+                                    <span className="count-lbl">{d.count}</span>
+                                </div>
+                                <div className="progress-track">
+                                    <div 
+                                        className={`progress-fill ${d.stage}`} 
+                                        style={{ width: `${d.percent}%` }} 
+                                    />
+                                </div>
                             </div>
                         ))}
                     </div>
-                )}
-
-                {/* 0.8. Workflow Distribution */}
-                <div className="intel-section">
-                    <div className="intel-header" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
-                        <Layers size={12} style={{ color: 'var(--text-tertiary)' }} />
-                        <span>Workflow Distribution</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'].map(s => {
-                            const count = blocks.filter(b => b.status === s).length;
-                            const percent = blocks.length > 0 ? (count / blocks.length) * 100 : 0;
-                            return (
-                                <div key={s} style={{ marginBottom: 4 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 }}>
-                                        <span>{s.replace('_', ' ')}</span>
-                                        <span>{count}</span>
-                                    </div>
-                                    <div style={{ height: 4, background: 'var(--bg)', borderRadius: 2, overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: `${percent}%`, background: s === 'COMPLETED' ? 'var(--green)' : s === 'REVIEW' ? 'var(--purple)' : 'var(--accent)' }} />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
                 </div>
 
-                {/* 1. True Bottlenecks */}
-                <div className="intel-section">
-                    <div className="intel-header" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--amber)', letterSpacing: '0.04em' }}>
-                        <AlertTriangle size={12} style={{ color: 'var(--amber)' }} />
+                {/* 0. OPERATIONAL REQUESTS (New) */}
+                <div className="intel-card requests-engine">
+                    <div className="card-header purple">
+                        <Users size={14} />
+                        <span>Execution Requests ({pendingRequests.length})</span>
+                    </div>
+                    {pendingRequests.length > 0 ? (
+                        <div className="requests-list">
+                            {pendingRequests.map(req => (
+                                <div key={req._id} className="request-item signal-item">
+                                    <div className="signal-header">
+                                        <span className="name">{req.type}</span>
+                                        <span className="badge amber">PENDING</span>
+                                    </div>
+                                    <div className="request-body">
+                                        <div className="request-meta">
+                                            <div className="meta-row">
+                                                <Users size={10} />
+                                                <span>Requester: <strong>{req.requestedBy?.displayName || 'Engineer'}</strong></span>
+                                            </div>
+                                            <div className="meta-row">
+                                                <Layers size={10} />
+                                                <span>Target Block: <strong>{req.blockName}</strong></span>
+                                            </div>
+                                            <div className="meta-row">
+                                                <Clock size={10} />
+                                                <span>Submitted: <strong>{req.createdAt ? new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}</strong></span>
+                                            </div>
+                                        </div>
+                                        <div className="request-reason-box">
+                                            <div className="reason-label">JUSTIFICATION:</div>
+                                            <div className="reason-text">{req.reason || req.description || req.message || 'No technical justification provided.'}</div>
+                                        </div>
+                                    </div>
+                                    <div className="request-actions">
+                                        <button 
+                                            className="req-btn approve"
+                                            onClick={() => onApproveRequest(req._id)}
+                                        >
+                                            Approve
+                                        </button>
+                                        <button 
+                                            className="req-btn reject"
+                                            onClick={() => onRejectRequest(req._id)}
+                                        >
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="empty-signal">No pending engineer requests.</div>
+                    )}
+                </div>
+
+                {/* 3. SYSTEMIC BOTTLENECKS */}
+                <div className="intel-card">
+                    <div className="card-header amber">
+                        <AlertTriangle size={14} />
                         <span>Systemic Bottlenecks ({bottlenecks.length})</span>
                     </div>
                     {bottlenecks.length > 0 ? bottlenecks.map(b => (
-                        <div key={b.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderLeft: '3px solid var(--amber)', borderRadius: '4px', padding: '10px 12px', marginBottom: 6 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)' }}>{b.name}</div>
-                                <span style={{ fontSize: 9, fontWeight: 800, background: 'var(--amber-bg)', color: 'var(--amber)', padding: '2px 6px', borderRadius: 4 }}>RISK {b.risk}%</span>
+                        <div key={b.id} className="signal-item bottleneck">
+                            <div className="signal-header">
+                                <span className="name">{b.name}</span>
+                                <span className="badge">RISK {Math.round(b.risk)}%</span>
                             </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                {b.stage} stage • Affects {b.impactCount} nodes
+                            <div className="signal-meta">
+                                {b.stage} • Impacts {b.impactCount} downstream nodes
                             </div>
                         </div>
                     )) : (
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', padding: '8px 12px', background: 'var(--surface)', borderRadius: 4, border: '1px dashed var(--border)' }}>No bottlenecks active</div>
+                        <div className="empty-signal">No active bottlenecks detected.</div>
                     )}
                 </div>
 
-                {/* 2. Critical Signals */}
-                <div className="intel-section">
-                    <div className="intel-header" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--red)', letterSpacing: '0.04em' }}>
-                        <Clock size={12} style={{ color: 'var(--red)' }} />
+                {/* 4. EXECUTION CRITICALITY */}
+                <div className="intel-card">
+                    <div className="card-header red">
+                        <Clock size={14} />
                         <span>Execution Criticality ({slaRisks.length})</span>
                     </div>
                     {slaRisks.length > 0 ? slaRisks.map(r => (
-                        <div key={r.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderLeft: '3px solid var(--red)', borderRadius: '4px', padding: '10px 12px', marginBottom: 6 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)' }}>{r.name}</div>
-                                <span style={{ fontSize: 9, fontWeight: 800, background: 'var(--red-bg)', color: 'var(--red)', padding: '2px 6px', borderRadius: 4 }}>{r.rejections}x REJ</span>
+                        <div key={r.id} className="signal-item critical">
+                            <div className="signal-header">
+                                <span className="name">{r.name}</span>
+                                <span className="badge">{r.rejections}x REJ</span>
                             </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
-                                Stagnation: {r.stagnation}% • Pressure: {r.pressure}%
+                            <div className="signal-meta">
+                                Pressure: {r.pressure}% • Stagnation: {r.stagnation}%
                             </div>
                         </div>
                     )) : (
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', padding: '8px 12px', background: 'var(--surface)', borderRadius: 4, border: '1px dashed var(--border)' }}>No critical risks</div>
+                        <div className="empty-signal">No critical execution risks.</div>
                     )}
                 </div>
 
-                {/* 3. Propagation Alerts */}
-                <div className="intel-section">
-                    <div className="intel-header" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
-                        <Link2 size={12} style={{ color: 'var(--text-tertiary)' }} />
+                {/* 5. PROPAGATION ALERTS */}
+                <div className="intel-card">
+                    <div className="card-header">
+                        <Link2 size={14} />
                         <span>Propagation Alerts ({depAlerts.length})</span>
                     </div>
                     {depAlerts.length > 0 ? depAlerts.map(a => (
-                        <div key={a.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: '4px', padding: '10px 12px', marginBottom: 6 }}>
-                            <div style={{ fontSize: 10.5, color: 'var(--text-primary)', fontWeight: 600 }}>
-                                {a.blocker} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>impacting</span> {a.blocked}
+                        <div key={a.id} className="propagation-item">
+                            <div className="prop-text">
+                                <strong>{a.blocker}</strong> impacting <strong>{a.blocked}</strong>
                             </div>
-                            <div style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 2 }}>
+                            <div className="prop-meta">
                                 Inherited Risk: {a.risk}% • Upstream {a.severity}
                             </div>
                         </div>
                     )) : (
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', padding: '8px 12px', background: 'var(--surface)', borderRadius: 4, border: '1px dashed var(--border)' }}>No propagation active</div>
+                        <div className="empty-signal">No cascading impact detected.</div>
                     )}
                 </div>
 
-                {/* 4. Escalated Priority */}
+                {/* 6. ESCALATED PRIORITY */}
                 {escalations.length > 0 && (
-                    <div className="intel-section">
-                        <div className="intel-header" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--purple)', letterSpacing: '0.04em' }}>
-                            <Zap size={12} style={{ color: 'var(--purple)' }} />
+                    <div className="intel-card">
+                        <div className="card-header purple">
+                            <Zap size={14} />
                             <span>Escalated Priority ({escalations.length})</span>
                         </div>
                         {escalations.map(e => (
-                            <div key={e.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderLeft: '3px solid var(--purple)', borderRadius: '4px', padding: '10px 12px', marginBottom: 6 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                    <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)' }}>{e.name}</div>
-                                    <span style={{ fontSize: 9, fontWeight: 800, background: 'var(--purple-bg)', color: 'var(--purple)', padding: '2px 6px', borderRadius: 4 }}>P-SCORE {e.priority}</span>
+                            <div key={e.id} className="signal-item escalated">
+                                <div className="signal-header">
+                                    <span className="name">{e.name}</span>
+                                    <span className="badge">P-SCORE {e.priority}</span>
                                 </div>
-                                <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
-                                    Systemic Relief: -{e.impactReduction}% propagation risk
+                                <div className="signal-meta">
+                                    Strategic relief: -{e.impactReduction}% propagation risk
                                 </div>
                             </div>
                         ))}
