@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Send, Clock, CheckCircle2, AlertTriangle, X, Plus, Activity, Layers } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const REQUEST_TYPES = ['Reassignment', 'Escalation', 'Resource Request', 'Dependency Unlock', 'Load Balancing'];
 
@@ -8,6 +9,35 @@ const EngRequests = ({ active = [], requests = [], onCreateRequest }) => {
     const [type, setType] = useState(REQUEST_TYPES[0]);
     const [selectedBlockId, setSelectedBlockId] = useState('');
     const [reason, setReason] = useState('');
+    const prevRequestsRef = useRef([]);
+
+    // Real-time synchronization toast: trigger immediately when status changes from PENDING
+    useEffect(() => {
+        if (prevRequestsRef.current.length > 0) {
+            requests.forEach(req => {
+                const prev = prevRequestsRef.current.find(p => p._id === req._id);
+                if (prev && prev.status === 'PENDING' && req.status !== 'PENDING') {
+                    const isApprove = req.status === 'APPROVED';
+                    toast(
+                        `REQUEST ${req.status}: Your ${req.type} request for ${req.blockId?.name || 'workflow'} was ${req.status.toLowerCase()}.`,
+                        { 
+                            icon: isApprove ? '✅' : '❌',
+                            duration: 5000,
+                            style: {
+                                borderRadius: '10px',
+                                background: 'var(--surface)',
+                                color: 'var(--text-primary)',
+                                border: `1px solid ${isApprove ? 'var(--green)' : 'var(--red)'}`,
+                                fontWeight: 600,
+                                fontSize: '13px'
+                            }
+                        }
+                    );
+                }
+            });
+        }
+        prevRequestsRef.current = requests;
+    }, [requests]);
 
     const sortedRequests = useMemo(() => [...(requests || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)), [requests]);
     const pending = useMemo(() => sortedRequests.filter(r => r.status === 'PENDING'), [sortedRequests]);
@@ -15,7 +45,23 @@ const EngRequests = ({ active = [], requests = [], onCreateRequest }) => {
 
     const handleSubmit = () => {
         if (!reason.trim()) return;
-        onCreateRequest?.({ type, blockId: selectedBlockId || undefined, reason });
+        
+        // Strict validation: Reassignment and Escalation MUST have a blockId
+        if (['Reassignment', 'Escalation', 'Dependency Unlock'].includes(type) && !selectedBlockId) {
+            alert(`Please select a specific block for ${type} requests.`);
+            return;
+        }
+
+        const payload = { 
+            type, 
+            blockId: selectedBlockId || undefined, 
+            reason,
+            title: type // Explicitly send title to match schema fallback
+        };
+        
+        console.log('[DEBUG] Dispatching Operational Request:', payload);
+        onCreateRequest?.(payload);
+        
         setReason('');
         setSelectedBlockId('');
         setShowForm(false);
@@ -91,7 +137,10 @@ const EngRequests = ({ active = [], requests = [], onCreateRequest }) => {
                         {pending.map(r => (
                             <div key={r._id} className="ew-wf">
                                 <div className="ew-wf-header">
-                                    <div className="ew-wf-name" style={{ fontSize: 14 }}>{r.type || 'Request'}</div>
+                                    <div className="ew-wf-name" style={{ fontSize: 14 }}>
+                                        {r.type || 'Request'} 
+                                        {r.blockId?.name && <span style={{ color: 'var(--text-tertiary)', fontSize: 11, marginLeft: 8 }}>— {r.blockId.name}</span>}
+                                    </div>
                                     <span className="ew-t t-amb">Awaiting Manager</span>
                                 </div>
                                 <div className="ew-wf-body" style={{ padding: '12px 18px' }}>
@@ -109,7 +158,10 @@ const EngRequests = ({ active = [], requests = [], onCreateRequest }) => {
                                 {resolved.map(r => (
                                     <div key={r._id} className="ew-wf" style={{ opacity: 0.7 }}>
                                         <div className="ew-wf-header" style={{ background: 'transparent' }}>
-                                            <div className="ew-wf-name" style={{ fontSize: 13 }}>{r.type || 'Request'}</div>
+                                            <div className="ew-wf-name" style={{ fontSize: 13 }}>
+                                                {r.type || 'Request'}
+                                                {r.blockId?.name && <span style={{ color: 'var(--text-tertiary)', fontSize: 10, marginLeft: 8 }}>— {r.blockId.name}</span>}
+                                            </div>
                                             <span className={`ew-t ${getStatusClass(r.status)}`}>{r.status}</span>
                                         </div>
                                         <div className="ew-wf-body" style={{ padding: '8px 18px 12px' }}>

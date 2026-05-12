@@ -13,6 +13,27 @@ export const STAGE_SLA_THRESHOLDS = {
     [STAGES.COMPLETED]: 0
 };
 
+/**
+ * CORE EFFORT ESTIMATION ENGINE
+ * Formula: estimated_hours = (base_hours * complexity_factor) + (estimated_area * area_weight)
+ */
+export const calculateEstimation = (baseHours, complexity, estimatedArea = 0) => {
+    const factors = {
+        'SIMPLE': 1.0,
+        'MEDIUM': 1.5,
+        'COMPLEX': 2.5,
+        'CRITICAL': 4.0
+    };
+    
+    const factor = factors[complexity] || 1.0;
+    const areaWeight = 0.2; 
+    
+    const baseEffort = (Number(baseHours) || 0) * factor;
+    const areaEffort = (Number(estimatedArea) || 0) * areaWeight;
+    
+    return Math.round(baseEffort + areaEffort);
+};
+
 export const getDomainIndex = (type) => {
     if (!type) return 0;
     const t = String(type.type || type || '').toUpperCase();
@@ -145,6 +166,10 @@ export function calculatePriorityScore(workflow, blocks = []) {
     // 6. Complexity (Weight: 5)
     if (workflow.complexity === 'CRITICAL') score += 5;
     else if (workflow.complexity === 'COMPLEX') score += 3;
+    
+    // 7. Area Normalization (Weight: 10)
+    const areaFactor = Math.sqrt(workflow.estimatedArea || 0) * 0.2;
+    score += Math.min(10, areaFactor);
 
     return Math.min(100, Math.round(score));
 }
@@ -278,8 +303,8 @@ export function calculateDependencyImpact(workflow, allWorkflows = []) {
     
     const nodeMap = new Map(allWorkflows.map(w => [w._id || w.id, w]));
     const wId = workflow._id || workflow.id;
-    const upstream = (workflow.dependencies || []).map(id => nodeMap.get(id?._id || id || id)).filter(Boolean);
-    const downstream = allWorkflows.filter(w => (w.dependencies || []).some(d => (d?._id || d || d) === wId));
+    const upstream = (workflow.dependencies || []).map(id => nodeMap.get(id?._id || id || id)).filter(Boolean).filter(u => u.status !== 'COMPLETED');
+    const downstream = allWorkflows.filter(w => (w.dependencies || []).some(d => (d?._id || d || d) === wId)).filter(d => d.status !== 'COMPLETED');
     
     const getAllUpstream = (w, visited = new Set()) => {
         const deps = (w.dependencies || []).map(id => id?._id || id || id).filter(id => !visited.has(id));
@@ -522,7 +547,10 @@ export function calculatePressureIndex(block, allBlocks = []) {
     const isBlocked = calculateBlockedState(block, allBlocks);
     const downstreamCount = (block.downstream || []).length;
     
-    let score = (sla.overrun * 40) + (rejections * 15) + (downstreamCount * 5);
+    // Normalize area impact to prevent it from overpowering SLA/Rejections
+    const areaPressure = Math.sqrt(block.estimatedArea || 0) * 0.15;
+    
+    let score = (sla.overrun * 40) + (rejections * 15) + (downstreamCount * 5) + areaPressure;
     if (isBlocked) score += 20;
     if (block.health === HEALTH_STATES.BOTTLENECK) score += 25;
     
@@ -660,4 +688,33 @@ export function validateBulkAction(action, selectedBlocks, allBlocks) {
         default:
             return false;
     }
+}
+
+/**
+ * CIRCULAR DEPENDENCY DETECTION
+ * Recursively checks if adding a dependency creates a cycle.
+ */
+export function hasCircularDependency(targetId, newDepId, allBlocks) {
+    if (!targetId || !newDepId) return false;
+    if (targetId === newDepId) return true;
+
+    const visited = new Set();
+    const stack = [newDepId];
+
+    while (stack.length > 0) {
+        const currentId = stack.pop();
+        if (currentId === targetId) return true;
+        if (visited.has(currentId)) continue;
+        
+        visited.add(currentId);
+        const block = allBlocks.find(b => b._id === currentId || b.id === currentId);
+        if (block && block.dependencies) {
+            block.dependencies.forEach(d => {
+                const dId = d._id || d.id || d;
+                stack.push(dId);
+            });
+        }
+    }
+
+    return false;
 }

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Layers, Heart, AlertTriangle, Clock, Users, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Layers, Heart, AlertTriangle, Clock, Users, TrendingUp, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
 import { useOrchestration } from '../../context/OrchestrationContext';
 
 const KpiStrip = () => {
@@ -36,6 +36,16 @@ const KpiStrip = () => {
                 label: 'Active Engineers', value: aggregated.activeEngineers, icon: Users, color: 'var(--violet)',
                 sub: `of ${engineers.length} total capacity`,
                 delta: engineers.length > 0 && aggregated.activeEngineers === engineers.length ? { dir: 'up', text: 'Full capacity', warn: true } : null,
+            },
+            {
+                label: 'Total Effort', value: `${aggregated.totalEstimatedHours || 0}h`, icon: TrendingUp, color: 'var(--indigo)',
+                sub: `Estimated for ${aggregated.total} blocks`,
+                delta: aggregated.totalRemainingEffort > 0 ? { dir: 'up', text: `${aggregated.totalRemainingEffort}h left` } : null,
+            },
+            {
+                label: 'Time Invested', value: `${aggregated.totalActualHours || 0}h`, icon: Activity, color: 'var(--blue)',
+                sub: `Cumulative execution time`,
+                delta: aggregated.totalVariance > 0 ? { dir: 'up', text: `+${aggregated.totalVariance}h variance`, warn: true } : null,
             },
         ];
     }, [blocks, engineers]);

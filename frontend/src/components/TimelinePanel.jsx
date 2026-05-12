@@ -2,11 +2,22 @@ import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
 import BlockDocsPanel from './BlockDocsPanel';
 import { useOrchestration } from '../context/OrchestrationContext';
+import { calculateSLA, formatDuration } from '../utils/workflowEngine';
+import { AlertTriangle, Clock, Activity, ShieldAlert, CheckCircle2, User, ChevronRight, Layers } from 'lucide-react';
 import './TimelinePanel.css';
 
 const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview, onResumeWorkflow, onEscalate, isManager, user }) => {
     const { blocks: contextBlocks } = useOrchestration();
     const block = contextBlocks.find(b => b._id === initialBlock?._id) || initialBlock;
+    
+    // Resolve dependencies with full block data
+    const resolvedDependencies = React.useMemo(() => {
+        return (block.dependencies || []).map(d => {
+            const depId = typeof d === 'string' ? d : d._id;
+            const found = contextBlocks.find(b => b._id === depId);
+            return found || (typeof d === 'object' ? d : { _id: depId, name: 'Unknown Node', status: 'UNKNOWN' });
+        });
+    }, [block.dependencies, contextBlocks]);
     
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -136,28 +147,43 @@ const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview,
                 )}
 
                 {/* Dependencies Section */}
-                {block.dependencies && block.dependencies.length > 0 && (
+                {resolvedDependencies.length > 0 && (
                     <div className="timeline-section" style={{ marginTop: 24 }}>
                         <div className="timeline-section-title">Dependency Impact</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {block.dependencies.map(dep => (
-                                <div key={dep._id || dep} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border-light)' }}>
-                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
-                                        {dep.name || dep}
-                                    </span>
-                                    {dep.status && (
-                                        <span className={`status-badge status-${dep.status}`} style={{ fontSize: 9 }}>
-                                            {dep.status.replace('_', ' ')}
-                                        </span>
-                                    )}
-                                    {dep.healthStatus && (
-                                        <span className={`health-dot health-dot-${dep.healthStatus}`} title={dep.healthStatus} />
-                                    )}
-                                </div>
-                            ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {resolvedDependencies.map(dep => {
+                                const isBlocking = dep.status !== 'COMPLETED';
+                                const sev = dep.healthStatus === 'CRITICAL' ? 'critical' : (isBlocking ? 'blocking' : 'healthy');
+                                
+                                return (
+                                    <div 
+                                        key={dep._id} 
+                                        className={`dep-card dep-${sev}`}
+                                        style={{ cursor: dep.status !== 'UNKNOWN' ? 'pointer' : 'default' }}
+                                    >
+                                        <div className="dep-card-header">
+                                            <span className="dep-name">{dep.name}</span>
+                                            <div className="dep-badges">
+                                                <span className={`ew-t ${dep.status === 'COMPLETED' ? 't-grn' : 't-blu'}`} style={{ fontSize: 9 }}>
+                                                    {dep.status?.replace('_', ' ') || 'UNKNOWN'}
+                                                </span>
+                                                <span className={`ew-t ${dep.healthStatus === 'CRITICAL' ? 't-red' : dep.healthStatus === 'RISK' ? 't-amb' : 't-grn'}`} style={{ fontSize: 9 }}>
+                                                    {dep.healthStatus || 'HEALTHY'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="dep-card-body">
+                                            <div className="dep-meta">
+                                                <span><User size={10} style={{ verticalAlign: 'middle', marginRight: 4 }} /> {dep.assignedEngineer?.displayName || 'Unassigned'}</span>
+                                                {isBlocking && <span style={{ color: 'var(--red)', fontWeight: 800, fontSize: 10 }}>BLOCKING</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>
-                            These blocks must complete specific verification stages before progression.
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Layers size={12} /> These modules must complete before this block can progress.
                         </div>
                     </div>
                 )}
@@ -194,8 +220,8 @@ const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview,
                     </div>
                 </div>
 
-                {/* Context & Notes Panel */}
-                <BlockDocsPanel blockId={block._id} blockName={block.name} />
+                {/* Context & Notes Panel (Manager Only) */}
+                {isManager && <BlockDocsPanel blockId={block._id} blockName={block.name} />}
 
                 {/* Activity History */}
                 <div className="timeline-section" style={{ marginTop: '24px' }}>

@@ -8,6 +8,8 @@ import WorkflowTable from './WorkflowTable';
 import BlockDetailsDrawer from './BlockDetailsDrawer';
 import { useOrchestration } from '../../context/OrchestrationContext';
 import { STAGES, HEALTH_STATES, BLOCK_TYPES, TECH_NODES, COMPLEXITY_LEVELS } from '../../constants/workflowStates';
+import { calculateEstimation } from '../../utils/workflowEngine';
+import DependencySelector from '../../components/DependencySelector';
 import './workspace.css';
 
 const WorkspaceTab = ({
@@ -170,6 +172,7 @@ const WorkspaceTab = ({
         onCreateBlock({ 
             ...formData, 
             baseHours: Number(formData.baseHours),
+            estimatedHours: calculateEstimation(Number(formData.baseHours), formData.complexity),
             estimatedArea: Number(formData.estimatedArea),
             priority: Number(formData.priority)
         });
@@ -266,6 +269,9 @@ const WorkspaceTab = ({
                                 <div>
                                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Base Effort (Hrs) *</label>
                                     <input type="number" className="form-control" style={{ fontSize: 12.5, padding: '7px 10px' }} required placeholder="0" value={formData.baseHours} onChange={e => setFormData({ ...formData, baseHours: e.target.value })} />
+                                    <div style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                                        Estimate: <strong>{calculateEstimation(Number(formData.baseHours), formData.complexity, Number(formData.estimatedArea))}h</strong>
+                                    </div>
                                 </div>
                                 <div>
                                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Estimated Area (µm²)</label>
@@ -283,18 +289,15 @@ const WorkspaceTab = ({
                                         {engineers.map(eng => <option key={eng._id} value={eng._id}>{eng.displayName}</option>)}
                                     </select>
                                 </div>
-                                <div style={{ gridColumn: 'span 2' }}>
+                                <div style={{ gridColumn: 'span 3' }}>
                                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Dependencies</label>
-                                    <select 
-                                        multiple 
-                                        className="form-control" 
-                                        style={{ fontSize: 12.5, padding: '7px 10px', height: 80 }} 
-                                        value={formData.dependencies} 
-                                        onChange={e => setFormData({ ...formData, dependencies: Array.from(e.target.selectedOptions, option => option.value) })}
-                                    >
-                                        {blocks.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                                    </select>
-                                    <div style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 4 }}>Hold Ctrl/Cmd to select multiple dependencies</div>
+                                    <DependencySelector 
+                                        selectedIds={formData.dependencies}
+                                        allBlocks={blocks}
+                                        onSelect={(id) => setFormData({ ...formData, dependencies: [...formData.dependencies, id] })}
+                                        onRemove={(id) => setFormData({ ...formData, dependencies: formData.dependencies.filter(x => x !== id) })}
+                                    />
+                                    <div style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 4 }}>Select uncompleted blocks that this block depends on. Circular chains are automatically prevented.</div>
                                 </div>
                                 <div style={{ gridColumn: 'span 3' }}>
                                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Description</label>

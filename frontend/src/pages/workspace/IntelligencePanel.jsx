@@ -12,8 +12,9 @@ const IntelligencePanel = ({ collapsed, requests = [], onApproveRequest, onRejec
 
     const pendingRequests = useMemo(() => {
         return (requests || []).filter(r => r.status === 'PENDING').map(r => {
-            const block = blocks.find(b => b._id === r.blockId);
-            return { ...r, blockName: block?.name || 'Global Request' };
+            // Support both populated object and flat ID string
+            const blockName = r.blockId?.name || blocks.find(b => b._id === r.blockId)?.name || 'Global Request';
+            return { ...r, blockName };
         });
     }, [requests, blocks]);
 

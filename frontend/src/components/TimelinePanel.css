@@ -199,3 +199,67 @@
     border-left: 2px solid var(--red);
 }
 
+/* Dependency Cards */
+.dep-card {
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.2s ease;
+    margin-bottom: 4px;
+}
+
+.dep-card:hover {
+    border-color: var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    transform: translateY(-1px);
+}
+
+.dep-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.dep-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.dep-badges {
+    display: flex;
+    gap: 6px;
+}
+
+.dep-card-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.dep-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.dep-critical {
+    border-left: 3px solid var(--red);
+    background: linear-gradient(to right, rgba(239, 68, 68, 0.03), var(--surface));
+}
+
+.dep-blocking {
+    border-left: 3px solid var(--amber);
+    background: linear-gradient(to right, rgba(245, 158, 11, 0.02), var(--surface));
+}
+
+.dep-healthy {
+    border-left: 3px solid var(--green);
+}

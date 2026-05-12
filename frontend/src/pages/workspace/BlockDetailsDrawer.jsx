@@ -8,10 +8,11 @@ import api from '../../api/axios';
 import { 
     calculateSLA, calculateDependencyImpact, calculateHealth, calculateProgress,
     generateRecommendedAction, formatDuration, calculateBlockedState,
-    calculateVelocity, calculateEfficiency
+    calculateVelocity, calculateEfficiency, calculateEstimation
 } from '../../utils/workflowEngine';
 import { STAGES, HEALTH_STATES, BLOCK_TYPES, TECH_NODES, COMPLEXITY_LEVELS } from '../../constants/workflowStates';
 import { useOrchestration } from '../../context/OrchestrationContext';
+import DependencySelector from '../../components/DependencySelector';
 
 const WORKFLOW_ORDER = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
 
@@ -31,6 +32,7 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
     const [logsLoading, setLogsLoading] = useState(true);
     const [rejectionActive, setRejectionActive] = useState(startWithRejection);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [isEstimateOverridden, setIsEstimateOverridden] = useState(false);
 
     // Sync edit mode if prop changes
     useEffect(() => {
@@ -58,7 +60,27 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
             dependencies: (block.dependencies || []).map(d => d._id || d),
             assignedEngineer: block.assignedEngineer?._id || block.assignedEngineer || ''
         });
+        setIsEstimateOverridden(false);
     }, [block?._id, block]);
+
+    const handleEditChange = (field, value) => {
+        const newData = { ...editData, [field]: value };
+        
+        // Auto-recalculate estimation if not overridden
+        if ((field === 'baseHours' || field === 'complexity' || field === 'estimatedArea') && !isEstimateOverridden) {
+            newData.estimatedHours = calculateEstimation(
+                field === 'baseHours' ? Number(value) : editData.baseHours,
+                field === 'complexity' ? value : editData.complexity,
+                field === 'estimatedArea' ? Number(value) : editData.estimatedArea
+            );
+        }
+
+        if (field === 'estimatedHours') {
+            setIsEstimateOverridden(true);
+        }
+
+        setEditData(newData);
+    };
 
     const { upstream, downstream } = useMemo(() => 
         calculateDependencyImpact(block, allBlocks),
@@ -143,6 +165,9 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
                 <div className="drawer-sticky-header">
                     <div className="header-identity">
                         <div className="identity-top">
+                            {block.isReassigned && (
+                                <span className="type-tag" style={{ background: 'var(--accent)', color: 'white', fontWeight: 900 }}>REASSIGNMENT</span>
+                            )}
                             <span className="type-tag">{block.type || 'LAYOUT BLOCK'}</span>
                             <span className="node-tag">{block.techNode || '7NM'}</span>
                             <span className="complexity-tag">{block.complexity}</span>
@@ -409,13 +434,22 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
                                 </div>
                                 <div className="form-field">
                                     <label>Complexity</label>
-                                    <select value={editData.complexity} onChange={e => setEditData({...editData, complexity: e.target.value})}>
+                                    <select value={editData.complexity} onChange={e => handleEditChange('complexity', e.target.value)}>
                                         {COMPLEXITY_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-field">
-                                    <label>Estimated Hours</label>
-                                    <input type="number" value={editData.estimatedHours} onChange={e => setEditData({...editData, estimatedHours: e.target.value})} />
+                                    <label>Base Effort (Hrs)</label>
+                                    <input type="number" value={editData.baseHours} onChange={e => handleEditChange('baseHours', e.target.value)} />
+                                </div>
+                                <div className="form-field">
+                                    <label>Estimated Hours {isEstimateOverridden && <span style={{fontSize: 9, color: 'var(--amber)'}}>(OVERRIDDEN)</span>}</label>
+                                    <input type="number" value={editData.estimatedHours} onChange={e => handleEditChange('estimatedHours', e.target.value)} />
+                                    {!isEstimateOverridden && (
+                                        <div style={{fontSize: 9, color: 'var(--text-tertiary)', marginTop: 4}}>
+                                            Auto-calculated: {editData.baseHours}h × factor
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="form-field">
                                     <label>Technology Node</label>
@@ -436,16 +470,13 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
                                 </div>
                                 <div className="form-field full-width">
                                     <label>Dependencies</label>
-                                    <select 
-                                        multiple 
-                                        className="multi-select"
-                                        value={editData.dependencies} 
-                                        onChange={e => setEditData({...editData, dependencies: Array.from(e.target.selectedOptions, opt => opt.value)})}
-                                    >
-                                        {allBlocks.filter(b => b._id !== block._id).map(b => (
-                                            <option key={b._id} value={b._id}>{b.name}</option>
-                                        ))}
-                                    </select>
+                                    <DependencySelector 
+                                        selectedIds={editData.dependencies}
+                                        allBlocks={allBlocks}
+                                        targetBlockId={block._id}
+                                        onSelect={(id) => handleEditChange('dependencies', [...editData.dependencies, id])}
+                                        onRemove={(id) => handleEditChange('dependencies', editData.dependencies.filter(x => x !== id))}
+                                    />
                                 </div>
                                 <div className="form-field full-width">
                                     <label>Description</label>

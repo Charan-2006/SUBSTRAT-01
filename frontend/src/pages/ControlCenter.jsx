@@ -52,9 +52,9 @@ const SimulationControl = ({
     // Auto-recommend engineer when target changes
     useEffect(() => {
         if (targetBlockId && bestMatch && !expertId) {
-            setExpertId(bestMatch.id);
+            setExpertId(bestMatch._id || bestMatch.id);
         }
-    }, [targetBlockId, bestMatch, expertId]);
+    }, [targetBlockId, bestMatch, expertId, setExpertId]);
 
     const handleSimulate = () => {
         onSimulate();
@@ -535,10 +535,24 @@ const ControlCenter = () => {
 
     const handleRunSimulation = async (overrides = {}) => {
         const targetId = overrides.targetBlockId || targetBlockId;
-        const engId = overrides.expertId || expertId;
+        let engId = overrides.expertId || expertId;
         const strat = overrides.strategy || strategy;
 
-        if (!targetId || !engId) return;
+        if (!targetId) return;
+
+        // Auto-resolve best engineer if missing (e.g. from sidebar quick actions)
+        if (!engId) {
+            const targetBlock = blocks.find(b => (b._id || b.id) === targetId);
+            const bestMatch = findBestEngineer(targetBlock, engineers, blocks);
+            if (bestMatch) {
+                engId = bestMatch._id || bestMatch.id;
+            }
+        }
+
+        if (!engId) {
+            toast.error("No valid engineer found for simulation");
+            return;
+        }
 
         const result = runOrchestrationSimulation(
             blocks, 
@@ -564,7 +578,9 @@ const ControlCenter = () => {
         setIsSimulating(true);
         if (simResult) {
             try {
+                const targetBlock = blocks.find(b => (b._id || b.id) === targetBlockId);
                 const isReassignment = !!targetBlock?.assignedEngineer;
+                
                 await assignEngineer(targetBlockId, expertId);
                 setHistory(prev => [simResult, ...prev].slice(0, 10));
                 setSimResult(null);
@@ -581,6 +597,7 @@ const ControlCenter = () => {
                     }
                 );
             } catch (err) {
+                console.error("Commit error:", err);
                 toast.error("Failed to commit orchestration strategy");
             }
         }

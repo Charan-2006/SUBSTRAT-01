@@ -80,8 +80,12 @@ exports.calculateHealth = (block) => {
         reasons.push('Critical bottleneck impacting downstream orchestration');
     }
 
+    // SIGNAL 6: Physical Complexity (Normalized Area Impact)
+    const areaFactor = Math.sqrt(block.estimatedArea || 0) * 0.5; // Normalized gradual impact
+    if (areaFactor > 15) status = 'WARNING'; // Large blocks are inherently risky
+
     // Telemetry and Scoring
-    const totalScore = Math.max(0, 100 - (rejections * 25) - (overrunRatio * 50) - (isEscalated ? 40 : 0));
+    const totalScore = Math.max(0, 100 - (rejections * 25) - (overrunRatio * 50) - (isEscalated ? 40 : 0) - (areaFactor));
 
     return { 
         status, 
@@ -90,8 +94,9 @@ exports.calculateHealth = (block) => {
         telemetry: {
             rejectionPressure: rejections * 20,
             stagnationIndex: Math.round(overrunRatio * 100),
-            priorityRank: Math.round(totalScore), // Simplified rank for backend
-            propagationImpact: Math.round(propagationRisk * 100)
+            priorityRank: Math.round(totalScore),
+            propagationImpact: Math.round(propagationRisk * 100),
+            physicalComplexity: Math.round(areaFactor)
         }
     };
 };
@@ -227,9 +232,9 @@ exports.propagateWorkflowChanges = async (sourceBlock, allBlocks) => {
 
 /**
  * CORE EFFORT ESTIMATION ENGINE
- * Formula: estimated_hours = base_hours * complexity_factor
+ * Formula: estimated_hours = (base_hours * complexity_factor) + (estimated_area * area_weight)
  */
-exports.calculateEstimation = (baseHours, complexity) => {
+exports.calculateEstimation = (baseHours, complexity, estimatedArea = 0) => {
     const factors = {
         'SIMPLE': 1.0,
         'MEDIUM': 1.5,
@@ -238,7 +243,12 @@ exports.calculateEstimation = (baseHours, complexity) => {
     };
     
     const factor = factors[complexity] || 1.0;
-    return Math.round((baseHours || 0) * factor);
+    const areaWeight = 0.2; // Moderate configurable weight
+    
+    const baseEffort = (baseHours || 0) * factor;
+    const areaEffort = (estimatedArea || 0) * areaWeight;
+    
+    return Math.round(baseEffort + areaEffort);
 };
 
 exports.WORKFLOW_ORDER = WORKFLOW_ORDER;

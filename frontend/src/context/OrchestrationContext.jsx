@@ -64,9 +64,9 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
                 isEscalated: block.escalationState && block.escalationState !== 'NORMAL',
                 isBlocked: block.orchestrationState === 'BLOCKED' || block.health === 'BLOCKED',
                 
-                // Orchestration Graph (Full Objects)
-                upstream: (block.dependencies || []).map(id => blocks.find(b => b._id === id)).filter(Boolean),
-                downstream: (block.downstream || []).map(id => blocks.find(b => b._id === id)).filter(Boolean),
+                // Orchestration Graph (Active Only)
+                upstream: (block.dependencies || []).map(id => blocks.find(b => b._id === id)).filter(Boolean).filter(u => u.status !== 'COMPLETED'),
+                downstream: block.status === 'COMPLETED' ? [] : (block.downstream || []).map(id => blocks.find(b => b._id === id)).filter(Boolean).filter(d => d.status !== 'COMPLETED'),
                 
                 // Effort Tracking
                 remainingEffort: Math.max(0, (block.estimatedHours || 0) - (block.totalTimeSpent || 0)),
@@ -123,6 +123,7 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
             logActivity('status_updated', blockId, { status: newStatus });
         } catch (err) {
             console.error("Context Status update error:", err);
+            throw err;
         }
     }, [logActivity]);
 
@@ -133,6 +134,7 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
             await fetchBlocks();
         } catch (err) {
             console.error("Context Assign error:", err);
+            throw err;
         }
     }, [logActivity, fetchBlocks]);
 
@@ -143,6 +145,7 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
             await fetchBlocks();
         } catch (err) {
             console.error("Context Unassign error:", err);
+            throw err;
         }
     }, [logActivity, fetchBlocks]);
 
@@ -152,6 +155,7 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
             logActivity('escalation_triggered', blockId, {});
         } catch (err) {
             console.error("Context Escalate error:", err);
+            throw err;
         }
     }, [logActivity]);
 

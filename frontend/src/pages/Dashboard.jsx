@@ -281,13 +281,9 @@ const Dashboard = () => {
             const request = requests.find(r => r._id === requestId);
             await api.put(`/requests/${requestId}/status`, { status: 'APPROVED' });
             
-            if (request && request.type === 'Reassignment' && request.blockId) {
-                const targetBlock = blocks.find(b => b._id === request.blockId);
-                if (targetBlock) {
-                    setSelectedBlock(targetBlock);
-                    setSelectedBlockEditMode(true);
-                }
-            }
+            // Backend now handles Reassignment and Escalation updates directly
+            // No need to manually open the edit drawer here.
+
 
             await fetchRequests();
             await fetchBlocks();

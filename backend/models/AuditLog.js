@@ -18,7 +18,7 @@ const AuditLogSchema = new mongoose.Schema({
     blockId: {
         type: mongoose.Schema.ObjectId,
         ref: 'Block',
-        required: true
+        // Optional for general requests/actions not tied to a specific block
     },
     previousValue: {
         type: mongoose.Schema.Types.Mixed,

@@ -234,7 +234,7 @@ const WorkflowTable = ({
                                         ) : (
                                             upstream.length > 0 && <div style={{ color: 'var(--text-tertiary)' }}>{upstream.length} Dependencies</div>
                                         )}
-                                        {downstream.length > 0 && (
+                                        {downstream.length > 0 && block.status !== STAGES.COMPLETED && (
                                             <div style={{ color: 'var(--accent)', fontWeight: 600, marginTop: 1 }}>Blocks {downstream.length} node(s)</div>
                                         )}
                                     </div>
@@ -260,18 +260,23 @@ const WorkflowTable = ({
                                         </td>
 
                                         <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 12.5 }}>{block.name}</div>
-                                                {block.isEscalated && (
-                                                    <span className="priority-badge escalated">
-                                                        ESCALATED
-                                                    </span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                {block.isReassigned && (
+                                                    <div style={{ fontSize: 8.5, fontWeight: 800, color: 'var(--accent)', letterSpacing: '0.05em' }}>REASSIGNMENT</div>
                                                 )}
-                                                {isBottleneck && (
-                                                    <span className="priority-badge bottleneck">
-                                                        BOTTLENECK
-                                                    </span>
-                                                )}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 12.5 }}>{block.name}</div>
+                                                    {block.isEscalated && (
+                                                        <span className="priority-badge escalated">
+                                                            ESCALATED
+                                                        </span>
+                                                    )}
+                                                    {isBottleneck && (
+                                                        <span className="priority-badge bottleneck">
+                                                            BOTTLENECK
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
 

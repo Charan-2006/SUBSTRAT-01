@@ -192,7 +192,12 @@ const BlockSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    isReassigned: {
+        type: Boolean,
+        default: false
+    },
     executionState: {
+
         type: String,
         enum: ['NOT_STARTED', 'READY', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'ESCALATED', 'COMPLETE', 'RELEASED'],
         default: 'NOT_STARTED'
@@ -209,8 +214,8 @@ const workflowService = require('../services/workflowService');
 
 // Pre-save hook for effort estimation logic
 BlockSchema.pre('save', async function() {
-    if ((this.isModified('complexity') || this.isModified('baseHours')) && !this.isModified('estimatedHours')) {
-        this.estimatedHours = workflowService.calculateEstimation(this.baseHours, this.complexity);
+    if ((this.isModified('complexity') || this.isModified('baseHours') || this.isModified('estimatedArea')) && !this.isModified('estimatedHours')) {
+        this.estimatedHours = workflowService.calculateEstimation(this.baseHours, this.complexity, this.estimatedArea);
     }
     
     // Auto-calculate health before saving

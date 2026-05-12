@@ -59,10 +59,8 @@ function getDepLabel(b,all) {
     const wt=(b.dependencies||[]).filter(d=>d.status!=='COMPLETED');
     if(wt.length>0) return `Waiting on ${wt[0].name} release`;
     return null;
-}
-
-const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onReview, onRelease }) => {
-    const [collapsed, setCollapsed] = useState({ COMPLETED:true });
+}const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onReview, onRelease }) => {
+    const [collapsed, setCollapsed] = useState({ COMPLETED:false });
     
     // Filter out released blocks
     const unreleasedBlocks = useMemo(() => blocks.filter(b => !b.isReleased), [blocks]);
@@ -78,25 +76,28 @@ const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onRevi
         return r;
     },[unreleasedBlocks]);
 
+    // 1. ADVANCED METRIC CALCULATION
     const avgQ = useMemo(()=>active.length?active.reduce((s,b)=>s+(realStageHours(b)||0),0)/active.length:0,[active]);
     
+    // Throughput: (Completed in last 24h / Active) - Simplified for demo to (Total Completed / Total Active)
     const throughput = useMemo(()=>unreleasedBlocks.length ? (done / unreleasedBlocks.length) : 0, [done, unreleasedBlocks]);
 
+    // Verify Rate: Approved / (Approved + Rejected)
     const vRate = useMemo(()=>{
         let totalApprovals = 0;
         let totalRejections = 0;
-        unreleasedBlocks.forEach(b => {
+        blocks.forEach(b => {
             totalApprovals += (b.approvalHistory?.length || 0);
             totalRejections += (b.rejectionHistory?.length || 0);
-            if (b.status === 'COMPLETED' && (b.approvalHistory?.length || 0) === 0) totalApprovals++; // Assume implicit approval for completed if history empty
         });
         const total = totalApprovals + totalRejections;
         return total ? Math.round((totalApprovals / total) * 100) : 100;
-    },[unreleasedBlocks]);
+    },[blocks]);
     
+    // Approval Latency: Average time in REVIEW stage
     const appLat = useMemo(()=>{
         const completedReviews = [];
-        unreleasedBlocks.forEach(b => {
+        blocks.forEach(b => {
             (b.stageHistory || []).forEach(h => {
                 if (h.stage === 'REVIEW' && h.durationHours > 0) {
                     completedReviews.push(h.durationHours);
@@ -105,59 +106,71 @@ const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onRevi
         });
         if(!completedReviews.length) return 0;
         return completedReviews.reduce((s, d) => s + d, 0) / completedReviews.length;
-    },[unreleasedBlocks]);
+    },[blocks]);
 
-    // Unique engineer tracking and real active workload percentages
+    // 2. WEIGHTED ENGINEER WORKLOAD
     const profiles = useMemo(()=>{
         const engMap = new Map();
         unreleasedBlocks.forEach(b => {
-            if(b.assignedEngineer && !['NOT_STARTED', 'COMPLETED'].includes(b.status)) {
+            if(b.assignedEngineer && b.status !== 'COMPLETED') {
                 const e = b.assignedEngineer;
                 const id = e._id || e.id;
                 if(!engMap.has(id)) {
-                    engMap.set(id, { id, name: e.displayName, active: 0, crit: 0, st: {} });
+                    engMap.set(id, { id, name: e.displayName, active: 0, crit: 0, st: {}, area: 0, weight: 0 });
                 }
                 const p = engMap.get(id);
                 p.active++;
                 if(b.healthStatus === 'CRITICAL' || b.escalated) p.crit++;
                 p.st[b.status] = (p.st[b.status] || 0) + 1;
+                p.area += (b.estimatedArea || 0);
+                
+                // Weight formula: (1.0 + (sqrt(area)/10)) * complexityFactor
+                const factors = { 'SIMPLE': 1.0, 'MEDIUM': 1.5, 'COMPLEX': 2.5, 'CRITICAL': 4.0 };
+                const f = factors[b.complexity] || 1.0;
+                p.weight += f * (1 + Math.sqrt(b.estimatedArea || 0) / 10);
             }
         });
 
         engineers.forEach(e => {
             const id = e._id || e.id;
-            if(!engMap.has(id)) engMap.set(id, { id, name: e.displayName, active: 0, crit: 0, st: {} });
+            if(!engMap.has(id)) engMap.set(id, { id, name: e.displayName, active: 0, crit: 0, st: {}, area: 0, weight: 0 });
         });
 
         return Array.from(engMap.values()).map(p => {
-            const util = Math.min(100, Math.round((p.active / 5) * 100)); // assuming 5 is max capacity
+            // Utilization based on weight (Target weight capacity = 10)
+            const util = Math.min(100, Math.round((p.weight / 10) * 100));
             const top = Object.entries(p.st).sort((a,b)=>b[1]-a[1])[0];
             return { ...p, util, exp: top ? top[0] : null };
         }).sort((a, b) => b.util - a.util);
     },[engineers,unreleasedBlocks]);
 
-    // Bottleneck detection based on SLA overruns, rejected, escalated, and dependency blocks
+    // 3. DYNAMIC EXECUTION INTELLIGENCE
     const recs = useMemo(()=>{
         const r=[];
         const over=profiles.filter(p=>p.util>=80),av=profiles.filter(p=>p.util<40);
-        if(over.length&&av.length) r.push(`Redistribute from ${over[0].name} (${over[0].util}%) to ${av[0].name} (${av[0].util}%).`);
+        if(over.length&&av.length) r.push(`Critical Overload: Redistribute tasks from ${over[0].name} (${over[0].util}%) to ${av[0].name}.`);
         
         const bottlenecks = unreleasedBlocks.filter(b => calculateBottleneck(b, unreleasedBlocks));
-        bottlenecks.forEach(b => {
-            const ds = unreleasedBlocks.filter(x=>x.dependencies?.some(d=>(d._id||d)===b._id));
-            const duration = realStageHours(b);
-            if(ds.length && duration > 0.1) r.push(`Systemic Bottleneck: ${b.name} blocks ${ds.length} downstream components (${fmt(duration)} stale).`);
-        });
+        if(bottlenecks.length) {
+            r.push(`Systemic Bottleneck: ${bottlenecks[0].name} is stalling ${unreleasedBlocks.filter(x=>x.dependencies?.some(d=>(d._id||d)===bottlenecks[0]._id)).length} downstream nodes.`);
+        }
 
-        STAGES.forEach(s => {
-            if(s==='COMPLETED') return;
-            const items = grouped[s] || [];
-            const delayCount = items.filter(b => slaOverrun(b) > 0.1).length;
-            if (delayCount >= 2) r.push(`${SLABELS[s]} congestion: ${delayCount} workflows over SLA.`);
-        });
+        const slaRisks = active.filter(b => slaOverrun(b) > 0);
+        if(slaRisks.length >= 3) {
+            r.push(`SLA Trend Violation: ${slaRisks.length} workflows are currently exceeding their deterministic thresholds.`);
+        }
+
+        const reviewPending = grouped['REVIEW'] || [];
+        if(reviewPending.length >= 2) {
+            r.push(`Review Congestion: ${reviewPending.length} modules awaiting managerial signoff. Latency is increasing.`);
+        }
+
+        if(blkd.length > 0) {
+            r.push(`Dependency Blockage: ${blkd.length} active nodes are idling due to upstream critical path delays.`);
+        }
 
         return r.slice(0,4);
-    },[profiles,unreleasedBlocks,grouped]);
+    },[profiles,unreleasedBlocks,grouped,active,blkd]);
 
     const depChains = useMemo(()=>{
         const ch=[];
@@ -171,81 +184,36 @@ const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onRevi
         return ch.sort((a,b)=>b.ds.length-a.ds.length).slice(0,4);
     },[unreleasedBlocks]);
 
-    // Activity Stream: Real events with grouping
-    const feed = useMemo(()=>{
-        const ev=[];
-        unreleasedBlocks.forEach(b=>{
-            // Stage transitions & Completion
-            (b.stageHistory||[]).forEach((h,i)=>{
-                if(h.startTime) ev.push({time:new Date(h.startTime), type: 'stage', block: b.name, action: `moved to ${h.stage.replace('_',' ')}`, k:`${b._id}s${i}`});
-                if(h.endTime&&h.durationHours) {
-                    const action = h.stage === 'REVIEW' && b.status === 'COMPLETED' ? 'cleared final signoff' : `cleared ${h.stage.replace('_',' ')} (${fmt(h.durationHours)})`;
-                    ev.push({time:new Date(h.endTime), type: 'stage', block: b.name, action, k:`${b._id}e${i}`});
-                }
-            });
-            // Rejections
-            (b.rejectionHistory||[]).forEach((r,i) => {
-                ev.push({ time: new Date(r.timestamp), type: 'reject', block: b.name, action: `review returned: ${r.reason}`, k: `${b._id}r${i}` });
-            });
-            // Approvals
-            (b.approvalHistory||[]).forEach((a,i) => {
-                ev.push({ time: new Date(a.timestamp), type: 'approve', block: b.name, action: `manager approved`, k: `${b._id}app${i}` });
-            });
-            // Assignments & Reassignments
-            (b.assignmentHistory||[]).forEach((a,i) => {
-                const eng = engineers.find(e => (e._id||e.id) === a.engineer) || b.assignedEngineer;
-                if(a.assignedAt && eng) {
-                    const action = i === 0 ? `assigned to ${eng.displayName}` : `reassigned to ${eng.displayName}`;
-                    ev.push({time:new Date(a.assignedAt), type: 'assign', block: b.name, action, k:`${b._id}a${i}`});
-                }
-            });
-            // Escalations
-            if (b.escalated && b.lastEscalatedAt) {
-                ev.push({ time: new Date(b.lastEscalatedAt), type: 'escalate', block: b.name, action: 'escalated to management', k: `${b._id}esc` });
-            }
-        });
+    // Removed Activity Stream from this tab to focus on metrics
 
-        // Add "Released" events from history/logs if available, or just recently released
-        // (Since unreleasedBlocks filters them out, we'd need 'blocks' here to show releases)
-        blocks.filter(b => b.isReleased).forEach(b => {
-             // Find latest log or just use updatedAt
-             ev.push({ time: new Date(b.updatedAt), type: 'release', block: b.name, action: 'released to tapeout', k: `${b._id}rel` });
-        });
-
-        // Sort events chronologically (newest first)
-        ev.sort((a,b)=>b.time-a.time);
-
-        // Group consecutive events intelligently
-        const groupedEv = [];
-        let currGroup = null;
-
-        for (let e of ev) {
-            if (!currGroup) {
-                currGroup = { ...e, count: 1 };
-            } else {
-                const timeDiff = Math.abs(currGroup.time - e.time);
-                if (currGroup.type === e.type && currGroup.block === e.block && currGroup.action === e.action && timeDiff < 5 * 60 * 1000) {
-                    currGroup.count++;
-                } else {
-                    groupedEv.push(currGroup);
-                    currGroup = { ...e, count: 1 };
-                }
-            }
-        }
-        if (currGroup) groupedEv.push(currGroup);
-
-        return groupedEv.map(e => ({
-            ...e,
-            html: <><strong>{e.block}</strong> {e.action} {e.count > 1 ? <span style={{color:'var(--accent)', fontWeight:800}}>({e.count}x)</span> : ''}</>
-        })).slice(0, 15);
-    },[blocks, unreleasedBlocks, engineers]);
-
-    // Stage congestion for sidebar
     const stagePressure = useMemo(()=>STAGES.filter(s=>s!=='COMPLETED').map(s=>{
         const items=grouped[s]||[];const avg=items.length?items.reduce((s2,b)=>s2+(realStageHours(b)||0),0)/items.length:0;
         const overCount=items.filter(b=>(slaOverrun(b)||0)>0.1).length;
         return {stage:s,count:items.length,avg,overCount,color:SCOLORS[s]};
     }).filter(s=>s.count>0),[grouped]);
+
+    // 5. ESTIMATION PRECISION ENGINE (REAL-TIME)
+    const estMetrics = useMemo(() => {
+        let totalEst = 0;
+        let totalAct = 0;
+        
+        const breakdown = unreleasedBlocks.map(b => {
+            const sla = calculateSLA(b);
+            const est = b.estimatedHours || 0;
+            const act = sla.actualHours || 0;
+            const diff = act - est;
+            
+            totalEst += est;
+            totalAct += act;
+            
+            return { name: b.name, est, act, diff };
+        }).sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 5);
+
+        const variance = totalEst > 0 ? ((totalAct - totalEst) / totalEst) * 100 : 0;
+        const accuracy = Math.max(0, 100 - Math.abs(variance));
+
+        return { totalEst, totalAct, variance, accuracy, topVariance: breakdown };
+    }, [unreleasedBlocks]);
 
     return (
         <div className="exec-console">
@@ -253,26 +221,26 @@ const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onRevi
                 <div className="exec-header-left">
                     <div className={`exec-pulse ${esc.length?'escalated':''}`}/>
                     <div>
-                        <div className="exec-header-title">Execution Console</div>
-                        <div className="exec-header-sub">{new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • {active.length} active workflow{active.length!==1?'s':''}{esc.length?` • ${esc.length} escalated`:''}</div>
+                        <div className="exec-header-title">Manager Execution Console</div>
+                        <div className="exec-header-sub">{new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} • Execution Orchestration Active</div>
                     </div>
                 </div>
                 <div className="exec-header-stats">
                     <div className="exec-header-stat"><div className="exec-header-stat-val" style={{color:'var(--accent)'}}>{active.length}</div><div className="exec-header-stat-label">Active</div></div>
                     <div className="exec-header-stat"><div className="exec-header-stat-val" style={{color:'var(--red)'}}>{esc.length}</div><div className="exec-header-stat-label">Escalated</div></div>
                     <div className="exec-header-stat"><div className="exec-header-stat-val" style={{color:'var(--amber)'}}>{blkd.length}</div><div className="exec-header-stat-label">Blocked</div></div>
-                    <div className="exec-header-stat"><div className="exec-header-stat-val" style={{color:'var(--green)'}}>{done}</div><div className="exec-header-stat-label">Complete</div></div>
+                    <div className="exec-header-stat"><div className="exec-header-stat-val" style={{color:'var(--green)'}}>{done}</div><div className="exec-header-stat-label">Tapeout</div></div>
                 </div>
             </div>
 
             <div className="exec-kpi-strip">
                 {[
-                    {label:'Active',value:active.length,color:'var(--accent)',trend:active.length>0?{t:`${STAGES.filter(s=>s!=='COMPLETED'&&(grouped[s]||[]).length>0).length} stages active`,d:'up',c:'var(--accent)'}:null},
-                    {label:'Escalated',value:esc.length,color:'var(--red)',trend:esc.length?{t:`${esc.length} need action`,d:'down',c:'var(--red)'}:{t:'None',d:'up',c:'var(--green)'}},
-                    {label:'Avg Stage Time',value:fmt(avgQ),color:avgQ>10?'var(--amber)':'var(--green)',trend:{t:avgQ>10?'Above SLA':'Within SLA',d:avgQ>10?'down':'up',c:avgQ>10?'var(--amber)':'var(--green)'}},
-                    {label:'Throughput',value:`${Math.round(throughput * 100)}%`,color:'var(--accent)',trend:{t:`${done} of ${unreleasedBlocks.length} complete`,d:'up',c:'var(--green)'}},
-                    {label:'Verify Rate',value:`${vRate}%`,color:vRate<80?'var(--red)':'var(--green)',trend:{t:vRate>=90?'On target':'Below target',d:vRate>=80?'up':'down',c:vRate>=80?'var(--green)':'var(--red)'}},
-                    {label:'Approval Latency',value:fmt(appLat),color:appLat>4?'var(--amber)':'var(--green)',trend:appLat>0?{t:appLat>4?'Slow':'Fast',d:appLat>4?'down':'up',c:appLat>4?'var(--amber)':'var(--green)'}:null},
+                    {label:'Active Workflows',value:active.length,color:'var(--accent)',trend:{t:`Across ${stagePressure.length} stages`,d:'up',c:'var(--accent)'}},
+                    {label:'Est. Total Effort',value:fmt(estMetrics.totalEst),color:'var(--text-secondary)',trend:{t:'Projected workload',d:'up',c:'var(--text-tertiary)'}},
+                    {label:'Actual Time',value:fmt(estMetrics.totalAct),color:estMetrics.variance > 10 ? 'var(--red)' : 'var(--green)',trend:{t:`${Math.abs(estMetrics.variance).toFixed(1)}% variance`,d:estMetrics.variance > 0 ? 'down' : 'up',c:estMetrics.variance > 10 ? 'var(--red)' : 'var(--green)'}},
+                    {label:'Resource Precision',value:`${estMetrics.accuracy.toFixed(1)}%`,color:estMetrics.accuracy < 85 ? 'var(--amber)' : 'var(--green)',trend:{t:estMetrics.accuracy >= 90 ? 'High Confidence' : 'Re-estimating...', d:estMetrics.accuracy >= 85 ? 'up' : 'down', c:estMetrics.accuracy >= 85 ? 'var(--green)' : 'var(--red)'}},
+                    {label:'Verify Rate',value:`${vRate}%`,color:vRate<85?'var(--red)':'var(--green)',trend:{t:vRate>=90?'Excellence':'Review required',d:vRate>=85?'up':'down',c:vRate>=85?'var(--green)':'var(--red)'}},
+                    {label:'Throughput',value:`${Math.round(throughput * 100)}%`,color:'var(--accent)',trend:{t:`${done} complete`,d:'up',c:'var(--green)'}},
                 ].map(k=><div key={k.label} className="exec-kpi"><div className="exec-kpi-label">{k.label}</div><div className="exec-kpi-value" style={{color:k.color}}>{k.value}</div>{k.trend&&<div className="exec-kpi-trend" style={{color:k.trend.c}}>{k.trend.d==='up'?<TrendingUp size={10}/>:<TrendingDown size={10}/>} {k.trend.t}</div>}</div>)}
             </div>
 
@@ -281,12 +249,11 @@ const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onRevi
                     {STAGES.map(stage=>{
                         let items=grouped[stage]||[];
                         
-                        // Strict conditions for Tapeout Ready
+                        // Strict Tapeout Ready filter
                         if (stage === 'COMPLETED') {
                             items = items.filter(b => 
                                 b.status === 'COMPLETED' && 
-                                b.healthStatus === 'HEALTHY' && 
-                                !b.escalated && 
+                                b.healthStatus !== 'CRITICAL' && 
                                 (b.dependencies || []).every(d => d.status === 'COMPLETED') &&
                                 (b.approvalHistory?.length > 0)
                             );
@@ -304,8 +271,8 @@ const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onRevi
                                     <div className="exec-lane-dot" style={{background:SCOLORS[stage]}}/>
                                     <div className="exec-lane-title">{SLABELS[stage]}</div>
                                     <div className="exec-lane-badges">
-                                        <span className="exec-lane-badge" style={{background:`${SCOLORS[stage]}18`,color:SCOLORS[stage]}}>{items.length}</span>
-                                        {eC>0&&<span className="exec-lane-badge" style={{background:'var(--red-bg)',color:'var(--red-text)'}}>{eC} ESC</span>}
+                                        <span className="exec-lane-badge" style={{background:`${SCOLORS[stage]}18`,color:SCOLORS[stage]}}>{items.length} Modules</span>
+                                        {eC>0&&<span className="exec-lane-badge" style={{background:'var(--red-bg)',color:'var(--red-text)'}}>{eC} RISK</span>}
                                         {bC>0&&<span className="exec-lane-badge" style={{background:'var(--amber-bg)',color:'var(--amber-text)'}}>{bC} BLK</span>}
                                     </div>
                                     <ChevronRight size={15} className={`exec-lane-chevron ${isOpen?'open':''}`}/>
@@ -319,82 +286,85 @@ const ExecutionTab = ({ blocks=[], engineers=[], onSelectBlock, onAssign, onRevi
                                             const cause=getCause(block);
                                             const depLbl=getDepLabel(block,unreleasedBlocks);
                                             const over=slaOverrun(block);
-                                            const t=realStageHours(block);
                                             const age=workflowAgeDays(block);
-                                            const priCls=pri.l==='P0'?'priority-p0':pri.l==='P1'?'priority-p1':pri.l==='P2'?'priority-p2':'';
 
                                             return (
-                                                <div key={block._id} className={`exec-task ${isTapeout?'tapeout-card':priCls}`} onClick={()=>onSelectBlock?.(block)}>
+                                                <div key={block._id} className={`exec-task ${isTapeout?'tapeout-card':pri.l==='P0'?'priority-p0':pri.l==='P1'?'priority-p1':''}`} onClick={()=>onSelectBlock?.(block)}>
                                                     <div>
                                                         <div className="exec-task-top">
                                                             <span className="exec-task-name">{block.name}</span>
                                                             <span className="exec-tag" style={{background:`${pri.c}12`,color:pri.c}}>{pri.l}</span>
-                                                            {isTapeout&&<span className="exec-tag exec-tag-green"><CheckCircle2 size={9}/> Signoff Complete</span>}
+                                                            {isTapeout&&<span className="exec-tag exec-tag-green" style={{fontSize:8}}><CheckCircle2 size={9}/> SIGNOFF VERIFIED</span>}
                                                         </div>
                                                         <div className="exec-task-engineer">{block.assignedEngineer?.displayName||'Unassigned'} • {action}</div>
                                                         <div className="exec-task-row">
                                                             <span className={`exec-tag ${status.cls}`}>{status.label}</span>
-                                                            {!isTapeout&&over!==null&&over>0.1&&<span className="exec-tag exec-tag-red">+{fmt(over)} over SLA</span>}
-                                                            {!isTapeout&&t!==null&&(over===null||over<=0.1)&&<span className="exec-tag exec-tag-gray">{fmt(t)} in stage</span>}
-                                                            {!isTapeout&&idx<items.length&&<span className="exec-tag exec-tag-gray" style={{opacity:0.7}}>#{idx+1}</span>}
+                                                            {over>0.1&&<span className="exec-tag exec-tag-red">SLA breached: +{fmt(over)}</span>}
+                                                            {!isTapeout&&age>0&&<span className="exec-tag exec-tag-gray">{age.toFixed(1)}d in flow</span>}
+                                                            {isTapeout&&<span className="exec-tag exec-tag-gray">Exec time: {fmt(block.totalTimeSpent)}</span>}
                                                         </div>
-                                                        {(depLbl||cause)&&<div className="exec-task-detail">{depLbl&&<span>{depLbl}</span>}{depLbl&&cause&&' • '}{cause&&<span>{cause}</span>}{age!==null&&<span style={{color:'var(--text-tertiary)'}}> • {age.toFixed(0)}d in workflow</span>}</div>}
+                                                        {(depLbl||cause)&&<div className="exec-task-detail">{depLbl&&<span>{depLbl}</span>}{depLbl&&cause&&' • '}{cause&&<span>{cause}</span>}</div>}
                                                     </div>
                                                     <div className="exec-task-actions" onClick={e=>e.stopPropagation()}>
-                                                        {block.status==='REVIEW'&&<><button className="exec-action-btn exec-action-approve" onClick={()=>onReview?.(block._id,'APPROVE')}>Approve</button><button className="exec-action-btn exec-action-reject" onClick={()=>onReview?.(block._id,'REJECT')}>Reject</button></>}
-                                                        {block.healthStatus==='CRITICAL'&&!['REVIEW','COMPLETED'].includes(block.status)&&<button className="exec-action-btn exec-action-escalate">Escalate</button>}
-                                                        {!block.assignedEngineer&&block.status!=='COMPLETED'&&<select className="exec-action-btn exec-action-assign" onChange={e=>{if(e.target.value)onAssign?.(block._id,e.target.value);}} defaultValue=""><option value="">Assign</option>{engineers.map(e=><option key={e._id} value={e._id}>{e.displayName}</option>)}</select>}
-                                                        {isTapeout&&<button className="exec-action-btn exec-action-approve" onClick={() => onRelease?.(block._id)}>Release</button>}
-                                                        {block.assignedEngineer&&!['REVIEW','COMPLETED'].includes(block.status)&&<button className="exec-action-btn exec-action-detail" onClick={()=>onSelectBlock?.(block)}>Details</button>}
+                                                        {block.status==='REVIEW'&&<><button className="exec-action-btn exec-action-approve" onClick={()=>onReview?.(block._id,'APPROVE')}>Signoff</button><button className="exec-action-btn exec-action-reject" onClick={()=>onReview?.(block._id,'REJECT')}>Return</button></>}
+                                                        {isTapeout&&<button className="exec-action-btn exec-action-approve" style={{padding:'6px 16px', background:'var(--green)', color:'white'}} onClick={() => onRelease?.(block._id)}>RELEASE TO TAPEOUT</button>}
+                                                        {!isTapeout&&block.status!=='REVIEW'&&<button className="exec-action-btn exec-action-detail" onClick={()=>onSelectBlock?.(block)}>Orchestrate</button>}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 )}
-                                {isOpen&&!items.length&&<div className="exec-lane-empty">No blocks in {SLABELS[stage]}</div>}
+                                {isOpen&&!items.length&&<div className="exec-lane-empty">No active workflows in {SLABELS[stage]}</div>}
                             </div>
                         );
                     })}
                 </div>
 
                 <div className="exec-side">
-                    {/* Stage Pressure */}
-                    {stagePressure.length>0&&<div className="exec-panel">
-                        <div className="exec-panel-title"><Zap size={11}/> Stage Congestion</div>
-                        {stagePressure.map(s=><div key={s.stage} className="exec-dispatch-item"><div><div className="exec-dispatch-name" style={{color:s.color}}>{SLABELS[s.stage]}</div><div className="exec-dispatch-detail">{s.count} queued • avg {fmt(s.avg)}{s.overCount>0?` • ${s.overCount} over SLA`:''}</div></div><div className="exec-dispatch-util" style={{color:s.overCount?'var(--red)':'var(--green)'}}>{s.count}</div></div>)}
-                    </div>}
+                    <div className="exec-panel">
+                        <div className="exec-panel-title"><Zap size={11}/> Stage Pressure</div>
+                        {stagePressure.map(s=><div key={s.stage} className="exec-dispatch-item"><div><div className="exec-dispatch-name" style={{color:s.color}}>{SLABELS[s.stage]}</div><div className="exec-dispatch-detail">{s.count} modules • avg {fmt(s.avg)}</div></div><div className="exec-dispatch-util" style={{color:s.overCount?'var(--red)':'var(--green)'}}>{s.count}</div></div>)}
+                    </div>
 
                     <div className="exec-panel">
                         <div className="exec-panel-title"><User size={11}/> Engineer Dispatch</div>
-                        {profiles.map(p=><div key={p.id} className="exec-dispatch-item"><div><div className="exec-dispatch-name">{p.name}</div><div className="exec-dispatch-detail">{p.exp||'—'} • {p.active} active{p.crit?` • ${p.crit} crit`:''}</div></div><div className="exec-dispatch-util" style={{color:p.util>=75?'var(--red)':p.util>=50?'var(--amber)':'var(--green)'}}>{p.util}%</div></div>)}
+                        {profiles.slice(0,5).map(p=><div key={p.id} className="exec-dispatch-item"><div><div className="exec-dispatch-name">{p.name}</div><div className="exec-dispatch-detail">{p.exp||'Idle'} • Workload: {p.weight.toFixed(1)}w</div></div><div className="exec-dispatch-util" style={{color:p.util>=85?'var(--red)':p.util>=60?'var(--amber)':'var(--green)'}}>{p.util}%</div></div>)}
                     </div>
 
-                    {depChains.length>0&&<div className="exec-panel">
-                        <div className="exec-panel-title"><Link2 size={11}/> Dependency Chains</div>
-                        {depChains.map((ch,i)=><div key={i} className="exec-dep-chain">
-                            <div className="exec-dep-nodes">
-                                {ch.up.slice(0,1).map(u=><React.Fragment key={u._id||u}><span className="exec-dep-node" style={{borderColor:u.healthStatus==='CRITICAL'?'var(--red)':'var(--border)',color:u.healthStatus==='CRITICAL'?'var(--red)':'var(--text-primary)'}}>{u.name}</span><ArrowDown size={10} className="exec-dep-arrow"/></React.Fragment>)}
-                                <span className="exec-dep-node" style={{borderColor:ch.health==='CRITICAL'?'var(--red)':'var(--amber)',fontWeight:800}}>{ch.block.name}</span>
-                                {ch.ds.slice(0,2).map(d=><React.Fragment key={d._id}><ArrowDown size={10} className="exec-dep-arrow"/><span className="exec-dep-node" style={{color:'var(--accent)'}}>{d.name}</span></React.Fragment>)}
-                            </div>
-                            <div className="exec-dep-detail">{ch.over!==null&&ch.over>0.1?`+${fmt(ch.over)} delay`:'In progress'} • {ch.ds.length} downstream</div>
-                        </div>)}
-                    </div>}
-
                     <div className="exec-panel">
-                        <div className="exec-panel-title"><Shield size={11}/> Recommendations</div>
+                        <div className="exec-panel-title"><Shield size={11}/> Execution Intelligence</div>
                         {recs.length > 0 ? (
                             recs.map((r,i)=><div key={i} className="exec-rec">{r}</div>)
                         ) : (
-                            <div className="exec-lane-empty" style={{padding:'12px 0', fontSize:12, textAlign:'left'}}>No execution bottlenecks currently detected.</div>
+                            <div className="exec-lane-empty" style={{padding:'12px 0', textAlign:'left'}}>No critical bottlenecks detected. Execution nominal.</div>
                         )}
                     </div>
 
-                    {feed.length>0&&<div className="exec-panel">
-                        <div className="exec-panel-title"><Activity size={11}/> Activity Stream</div>
-                        {feed.map(e=><div key={e.k} className="exec-feed-item"><div className="exec-feed-time">{e.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div className="exec-feed-text">{e.html}</div></div>)}
-                    </div>}
+
+                    <div className="exec-panel">
+                        <div className="exec-panel-title"><Clock size={11}/> Estimation Precision</div>
+                        <div style={{ padding: '4px 0 12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>System Accuracy</span>
+                                <span style={{ fontWeight: 700, color: estMetrics.accuracy < 85 ? 'var(--amber)' : 'var(--green)' }}>{estMetrics.accuracy.toFixed(1)}%</span>
+                            </div>
+                            <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${estMetrics.accuracy}%`, background: estMetrics.accuracy < 85 ? 'var(--amber)' : 'var(--green)' }} />
+                            </div>
+                        </div>
+                        {estMetrics.topVariance.map(v => (
+                            <div key={v.name} className="exec-dispatch-item">
+                                <div style={{ flex: 1 }}>
+                                    <div className="exec-dispatch-name">{v.name}</div>
+                                    <div className="exec-dispatch-detail">Est: {fmt(v.est)} • Act: {fmt(v.act)}</div>
+                                </div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: v.diff > 0 ? 'var(--red)' : 'var(--green)' }}>
+                                    {v.diff > 0 ? '+' : ''}{fmt(v.diff)}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
