@@ -41,11 +41,18 @@
 
 .cc-redesign-container {
     display: grid;
-    grid-template-columns: 320px 1fr 320px;
-    height: calc(100vh - 80px); /* Adjust for header if exists */
+    grid-template-rows: 1fr auto;
+    height: 100%;
     background: var(--cc-bg);
     color: var(--cc-text-pri);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+}
+
+.cc-main-content {
+    display: grid;
+    grid-template-columns: 320px 1fr 320px;
+    height: 100%;
     overflow: hidden;
 }
 
@@ -466,26 +473,31 @@
 
 /* ========== Execution Monitor ========== */
 .cc-monitor {
-    background: var(--cc-bg);
+    background: #fcfcfd;
     border-top: 1px solid var(--cc-border);
-    padding: 16px 24px;
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
+    padding: 12px 32px;
+    width: 100%;
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.03);
 }
 
 .cc-monitor-inner {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 32px;
 }
 
 .cc-monitor-stat {
     display: flex;
     flex-direction: column;
-    min-width: 120px;
+    min-width: 140px;
+}
+
+.cc-monitor-stat.right {
+    text-align: right;
+    align-items: flex-end;
 }
 
 .cc-monitor-lbl {
@@ -493,28 +505,42 @@
     font-weight: 700;
     color: var(--cc-text-ter);
     text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
 }
 
 .cc-monitor-val {
     font-size: 18px;
     font-weight: 800;
+    line-height: 1.1;
 }
 
 .cc-monitor-track {
     flex: 1;
-    height: 8px;
-    background: var(--cc-border);
-    border-radius: 4px;
+    height: 6px;
+    background: #f1f3f5;
+    border-radius: 3px;
     position: relative;
     overflow: hidden;
+    margin: 0 40px;
 }
 
 .cc-monitor-progress {
     position: absolute;
     top: 0;
     bottom: 0;
-    border-radius: 4px;
-    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 6px;
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.cc-monitor-progress.bg-danger {
+    background: linear-gradient(90deg, #ff3b30, #ff6b6b);
+}
+
+.cc-monitor-progress.bg-success {
+    background: linear-gradient(90deg, #34c759, #4cd964);
+    z-index: 2;
 }
 
 /* ========== Simulation History ========== */
@@ -547,6 +573,80 @@
 .cc-progress-fill {
     height: 100%;
     transition: width 0.4s ease;
+}
+
+/* ========== Strategic Preview v3 ========== */
+.cc-sim-preview-v3 {
+    background: var(--cc-bg);
+    border: 1px solid var(--cc-border-strong);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--cc-shadow-sm);
+}
+
+.cc-sim-header-v3 {
+    background: var(--cc-sidebar-bg);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--cc-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--cc-text-ter);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cc-sim-grid-v3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--cc-border-strong);
+}
+
+.cc-sim-item-v3 {
+    padding: 12px;
+    border-right: 1px solid var(--cc-border);
+    border-bottom: 1px solid var(--cc-border);
+}
+
+.cc-sim-item-v3:nth-child(2n) {
+    border-right: none;
+}
+
+.cc-sim-item-v3 .lbl {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--cc-text-ter);
+    margin-bottom: 4px;
+}
+
+.cc-sim-item-v3 .val {
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.cc-sim-item-v3 .val.success { color: var(--cc-success); }
+.cc-sim-item-v3 .val.info { color: var(--cc-accent); }
+.cc-sim-item-v3 .val.danger { color: var(--cc-danger); }
+.cc-sim-item-v3 .val.warning { color: var(--cc-warning); }
+
+/* ========== Empty States ========== */
+.cc-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--cc-text-ter);
+    padding: 40px 20px;
+}
+
+.cc-empty p {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
 }
 
 /* Strategy Tabs v2 */

@@ -25,25 +25,26 @@ const stagger = {
 const features = [
     {
         icon: <Activity size={24} />, iconClass: 'icon-blue',
-        title: 'Workflow Visibility',
-        desc: 'See every block\'s journey from design to signoff in a single, unified view.'
+        title: 'Operational Visibility',
+        desc: 'Gain crystal-clear oversight into every design phase, from initial layout to final signoff.'
     },
     {
-        icon: <Calendar size={24} />, iconClass: 'icon-purple',
-        title: 'Timeline Tracking',
-        desc: 'Gantt-style roadmaps keep your team aligned on deadlines and dependencies.'
+        icon: <Users size={24} />, iconClass: 'icon-purple',
+        title: 'Unified Orchestration',
+        desc: 'Synchronize multi-functional teams with a single source of truth for all engineering tasks.'
     },
     {
         icon: <AlertTriangle size={24} />, iconClass: 'icon-amber',
-        title: 'Bottleneck Detection',
-        desc: 'AI-powered alerts surface workflow bottlenecks before they become blockers.'
+        title: 'Predictive Analytics',
+        desc: 'Identify potential bottlenecks and schedule risks before they impact your delivery timeline.'
     },
     {
-        icon: <Users size={24} />, iconClass: 'icon-green',
-        title: 'Team Coordination',
-        desc: 'Assign, track, and balance workloads across your engineering team in real time.'
+        icon: <Calendar size={24} />, iconClass: 'icon-green',
+        title: 'Strategic Scheduling',
+        desc: 'Manage complex dependencies with Gantt-integrated roadmaps designed for semiconductor velocity.'
     }
 ];
+
 
 /* ─── Mock Data for Timeline ─── */
 const mockRows = [
@@ -100,11 +101,8 @@ const LandingPage = () => {
                     <a href="#preview">Preview</a>
                 </div>
                 <div className="lp-navbar-actions">
-                    <button className="lp-btn lp-btn-ghost" onClick={handleGoogleLogin}>
-                        Log In
-                    </button>
-                    <button className="lp-btn lp-btn-primary" onClick={handleGoogleLogin}>
-                        Get Started
+                    <button className="lp-btn lp-btn-google" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={handleGoogleLogin}>
+                        Sign In
                     </button>
                 </div>
             </nav>
@@ -118,27 +116,24 @@ const LandingPage = () => {
                         animate="visible"
                         variants={stagger}
                     >
-                        <motion.div variants={fadeUp} custom={0} className="lp-hero-badge">
-                            <span className="lp-hero-badge-dot" />
-                            Now in active development
+                        <motion.div variants={fadeUp} custom={0} className="lp-section-label">
+                            ✦ Next Gen Orchestration
                         </motion.div>
 
                         <motion.h1 variants={fadeUp} custom={1} className="lp-hero-title">
-                            Build. Track. Deliver<br />
-                            — <span className="gradient-text">Faster.</span>
+                            Orchestrate Complexity.<br />
+                            <span className="gradient-text">Deliver Excellence.</span>
                         </motion.h1>
 
                         <motion.p variants={fadeUp} custom={2} className="lp-hero-subtitle">
-                            SUBSTRAT simplifies engineering workflows with clarity, control, and real-time insights.
+                            The intelligent execution engine for semiconductor engineering. 
+                            Track, analyze, and optimize your workflows in real-time.
                         </motion.p>
 
                         <motion.div variants={fadeUp} custom={3} className="lp-hero-cta">
                             <button className="lp-btn lp-btn-google" onClick={handleGoogleLogin}>
                                 <GoogleIcon />
-                                Continue with Google
-                            </button>
-                            <button className="lp-btn lp-btn-secondary" onClick={handleGoogleLogin}>
-                                View Demo →
+                                Get Started with Google
                             </button>
                         </motion.div>
                     </motion.div>
@@ -148,6 +143,7 @@ const LandingPage = () => {
                     <AntigravityChip />
                 </div>
             </section>
+
 
             {/* ─── FEATURES ─── */}
             <section className="lp-section" id="features">
@@ -159,11 +155,12 @@ const LandingPage = () => {
                 >
                     <motion.div variants={fadeUp} className="lp-section-label">✦ Features</motion.div>
                     <motion.h2 variants={fadeUp} className="lp-section-title">
-                        Everything you need to<br />ship layouts on time.
+                        Engineered for the<br />modern layout team.
                     </motion.h2>
                     <motion.p variants={fadeUp} className="lp-section-subtitle">
-                        From block creation to final signoff — one platform, zero guesswork.
+                        From complex block hierarchies to tape-out readiness — experience total control.
                     </motion.p>
+
 
                     <motion.div className="lp-features-grid" variants={stagger}>
                         {features.map((f, i) => (
@@ -292,10 +289,11 @@ const LandingPage = () => {
                         />
                         <div className="lp-steps-grid-vertical">
                             {[
-                                { num: '1', title: 'Create or Request', desc: 'Submit layout blocks or file structured requests through the intake system.' },
-                                { num: '2', title: 'Track Progress', desc: 'Monitor real-time status across DRC, LVS, Review, and all workflow stages.' },
-                                { num: '3', title: 'Deliver with Clarity', desc: 'Ship on time with bottleneck alerts, health monitoring, and team insights.' }
+                                { num: '1', title: 'System Intake', desc: 'Seamlessly submit layout blocks or structured requests through our intelligent intake interface.' },
+                                { num: '2', title: 'Live Orchestration', desc: 'Monitor real-time validation status across DRC, LVS, and multi-stage review workflows.' },
+                                { num: '3', title: 'Quality Delivery', desc: 'Ship with absolute confidence using predictive bottleneck alerts and health monitoring.' }
                             ].map((step, i) => (
+
                                 <motion.div key={i} className="lp-step-vertical" variants={fadeUp} custom={i}>
                                     <div className="lp-step-indicator-node" />
                                     <div className="lp-step-content-vertical">
@@ -334,11 +332,12 @@ const LandingPage = () => {
             {/* ─── FOOTER ─── */}
             <footer className="lp-footer">
                 <div className="lp-footer-brand">
-                    <div className="lp-brand-logo" style={{ width: 24, height: 24, fontSize: 12, borderRadius: 6 }}>
+                    <div className="lp-brand-logo">
                         <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
-                    © {new Date().getFullYear()} SUBSTRAT
+                    SUBSTRAT
                 </div>
+
                 <div className="lp-footer-links">
                     <a href="#features">Features</a>
                     <a href="#how-it-works">How It Works</a>

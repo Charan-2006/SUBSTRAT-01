@@ -401,25 +401,6 @@ const GraphWorkspace = ({ blocks, simResult, selectedNodeId, onSelectNode, isSim
                 ))}
             </div>
             
-            {/* EXECUTION MONITOR BAR */}
-            <div className="cc-monitor">
-                <div className="cc-monitor-inner">
-                    <div className="cc-monitor-stat">
-                        <span className="cc-monitor-lbl">Baseline Delay</span>
-                        <span className="cc-monitor-val text-danger">+{blocks.reduce((s, b) => s + (b.delayHours || 0), 0).toFixed(1)}h</span>
-                    </div>
-                    <div className="cc-monitor-track">
-                        <div className="cc-monitor-progress bg-danger" style={{ width: '40%' }} />
-                        {simResult && <div className="cc-monitor-progress bg-success" style={{ width: `${(simResult.recoveryHours / 50) * 100}%`, marginLeft: '40%' }} />}
-                    </div>
-                    <div className="cc-monitor-stat">
-                        <span className="cc-monitor-lbl">Projected Recovery</span>
-                        <span className="cc-monitor-val text-success">
-                            {simResult ? `-${simResult.recoveryHours}h` : '0.0h'}
-                        </span>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };
@@ -606,41 +587,83 @@ const ControlCenter = () => {
 
     return (
         <div className="cc-redesign-container">
-            <SimulationControl 
-                blocks={blocks} 
-                engineers={engineers} 
-                onRun={handleCommitStrategy}
-                onSimulate={handleRunSimulation}
-                isSimulating={isSimulating}
-                activeNodeId={selectedNodeId}
-                history={history}
-                targetBlockId={targetBlockId}
-                setTargetBlockId={setTargetBlockId}
-                expertId={expertId}
-                setExpertId={setExpertId}
-                strategy={strategy}
-                setStrategy={setStrategy}
-                simResult={simResult}
-            />
-            
-            <GraphWorkspace 
-                blocks={blocks}
-                simResult={simResult}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                isSimulating={isSimulating}
-            />
+            <div className="cc-main-content">
+                <SimulationControl 
+                    blocks={blocks} 
+                    engineers={engineers} 
+                    onRun={handleCommitStrategy}
+                    onSimulate={handleRunSimulation}
+                    isSimulating={isSimulating}
+                    activeNodeId={selectedNodeId}
+                    history={history}
+                    targetBlockId={targetBlockId}
+                    setTargetBlockId={setTargetBlockId}
+                    expertId={expertId}
+                    setExpertId={setExpertId}
+                    strategy={strategy}
+                    setStrategy={setStrategy}
+                    simResult={simResult}
+                />
+                
+                <GraphWorkspace 
+                    blocks={blocks}
+                    simResult={simResult}
+                    selectedNodeId={selectedNodeId}
+                    onSelectNode={setSelectedNodeId}
+                    isSimulating={isSimulating}
+                />
 
-            <StrategicInsights 
-                activeNodeId={selectedNodeId}
-                blocks={simResult?.optimizedBlocks || blocks}
-                simResult={simResult}
-                isSimulating={isSimulating}
-                onSimulate={handleRunSimulation}
-                setTargetBlockId={setTargetBlockId}
-                setExpertId={setExpertId}
-                setStrategy={setStrategy}
-            />
+                <StrategicInsights 
+                    activeNodeId={selectedNodeId}
+                    blocks={simResult?.optimizedBlocks || blocks}
+                    simResult={simResult}
+                    isSimulating={isSimulating}
+                    onSimulate={handleRunSimulation}
+                    setTargetBlockId={setTargetBlockId}
+                    setExpertId={setExpertId}
+                    setStrategy={setStrategy}
+                />
+            </div>
+
+            {/* GLOBAL EXECUTION MONITOR BAR */}
+            <div className="cc-monitor">
+                <div className="cc-monitor-inner">
+                    <div className="cc-monitor-stat">
+                        <span className="cc-monitor-lbl">Baseline Delay</span>
+                        <span className="cc-monitor-val text-danger">
+                            +{blocks.reduce((s, b) => s + (b.delayHours || 0), 0).toFixed(1)}h
+                        </span>
+                    </div>
+                    <div className="cc-monitor-track">
+                        {(() => {
+                            const totalDelay = blocks.reduce((s, b) => s + (b.delayHours || 0), 0);
+                            const baseWidth = Math.min(totalDelay / 2, 100);
+                            const recovWidth = simResult ? Math.min(simResult.recoveryHours / 2, baseWidth) : 0;
+                            
+                            return (
+                                <>
+                                    <div className="cc-monitor-progress bg-danger" style={{ width: `${baseWidth}%` }} />
+                                    {simResult && (
+                                        <div 
+                                            className="cc-monitor-progress bg-success" 
+                                            style={{ 
+                                                width: `${recovWidth}%`, 
+                                                left: `${baseWidth - recovWidth}%` 
+                                            }} 
+                                        />
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </div>
+                    <div className="cc-monitor-stat right">
+                        <span className="cc-monitor-lbl">Projected Recovery</span>
+                        <span className="cc-monitor-val text-success">
+                            {simResult ? `-${simResult.recoveryHours}h` : '0.0h'}
+                        </span>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

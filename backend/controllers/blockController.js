@@ -658,8 +658,13 @@ exports.getAnalytics = async (req, res, next) => {
 exports.resetDataset = async (req, res, next) => {
     try {
         const AuditLog = require('../models/AuditLog');
+        const Notification = require('../models/Notification');
+        const Request = require('../models/Request');
         await Block.deleteMany({});
         await AuditLog.deleteMany({});
+        // Also clear notifications and requests for a full reset
+        try { await Notification.deleteMany({}); } catch(e) {}
+        try { await Request.deleteMany({}); } catch(e) {}
         res.status(200).json({ success: true, message: 'Dataset reset successfully' });
     } catch (error) {
         next(error);
@@ -671,93 +676,256 @@ exports.resetDataset = async (req, res, next) => {
 // @access  Private (Manager only)
 exports.loadDemoData = async (req, res, next) => {
     try {
-        const User = require('../models/User');
-        const engineers = await User.find({ role: 'Engineer' });
-        const manager = await User.findOne({ role: 'Manager' });
-        const creatorId = manager ? manager._id : req.user.id;
+        const AuditLog = require('../models/AuditLog');
+        const Notification = require('../models/Notification');
+        const Request = require('../models/Request');
+        await Block.deleteMany({});
+        await AuditLog.deleteMany({});
+        try { await Notification.deleteMany({}); } catch(e) {}
+        try { await Request.deleteMany({}); } catch(e) {}
 
+        const creatorId = req.user.id;
         const now = new Date();
-        const hour = 60 * 60 * 1000;
-        
-        const dagStructure = [
-            { id: 'b1', name: 'PLL_Core', status: 'IN_PROGRESS', health: 'CRITICAL', complexity: 'CRITICAL', deps: [] },
-            { id: 'b16', name: 'Bandgap_Ref', status: 'IN_PROGRESS', health: 'SEVERE', complexity: 'COMPLEX', deps: ['b1'] },
-            { id: 'b5', name: 'Bias_Gen', status: 'DRC', health: 'RISK', complexity: 'COMPLEX', deps: ['b16'] },
-            { id: 'b17', name: 'Level_Shifter', status: 'NOT_STARTED', health: 'HEALTHY', complexity: 'MEDIUM', deps: ['b5'] },
-            { id: 'b2', name: 'ADC_SAR', status: 'NOT_STARTED', health: 'HEALTHY', complexity: 'COMPLEX', deps: ['b17'] },
-            { id: 'b3', name: 'DAC_IDAC', status: 'NOT_STARTED', health: 'HEALTHY', complexity: 'MEDIUM', deps: ['b2'] },
-            { id: 'b11', name: 'POR_Circuit', status: 'COMPLETED', health: 'HEALTHY', complexity: 'SIMPLE', deps: [] },
-            { id: 'b12', name: 'LDO_Regulator', status: 'COMPLETED', health: 'HEALTHY', complexity: 'MEDIUM', deps: ['b11'] },
-            { id: 'b6', name: 'SRAM_Array', status: 'IN_PROGRESS', health: 'RISK', complexity: 'CRITICAL', deps: ['b12', 'b5'] },
-            { id: 'b7', name: 'Sense_Amp', status: 'NOT_STARTED', health: 'HEALTHY', complexity: 'MEDIUM', deps: ['b6'] },
-            { id: 'b8', name: 'Clock_Distribution', status: 'LVS', health: 'BOTTLENECK', complexity: 'CRITICAL', deps: [] },
-            { id: 'b9', name: 'Top_Wrap', status: 'NOT_STARTED', health: 'HEALTHY', complexity: 'COMPLEX', deps: ['b8', 'b3', 'b7'] },
-            { id: 'b10', name: 'Charge_Pump', status: 'REVIEW', health: 'RISK', complexity: 'MEDIUM', deps: [] },
-            { id: 'b13', name: 'Input_Buffer', status: 'IN_PROGRESS', health: 'HEALTHY', complexity: 'SIMPLE', deps: ['b10', 'b12'] },
-            { id: 'b14', name: 'Output_Stage', status: 'DRC', health: 'HEALTHY', complexity: 'MEDIUM', deps: ['b13'] },
-            { id: 'b15', name: 'ESD_Clamp', status: 'NOT_STARTED', health: 'HEALTHY', complexity: 'SIMPLE', deps: ['b14'] }
+        const H = 3600000; // 1 hour in ms
+
+        // --- Engineer identity map (match by displayName or fallback by index) ---
+        const allEngineers = await User.find({ role: 'Engineer' });
+        const eng = (name) => {
+            const found = allEngineers.find(e => e.displayName === name);
+            return found ? found._id : (allEngineers.length > 0 ? allEngineers[0]._id : null);
+        };
+
+        // Helper to build stage history
+        const stages = (list) => list.map(s => ({
+            stage: s[0],
+            startTime: new Date(now.getTime() - s[2] * H),
+            endTime: new Date(now.getTime() - s[1] * H),
+            durationHours: s[2] - s[1]
+        }));
+
+        const blocks = {};
+
+        // ── 1. Bandgap_Reference ─────────────────────────────────
+        blocks.b1 = await new Block({
+            name: 'Bandgap_Reference', type: 'Analog Core', techNode: '7nm',
+            complexity: 'MEDIUM', priority: 7, status: 'COMPLETED',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            assignedEngineer: eng('Layout_Engineer_1'),
+            expectedDurationHours: 12, actualDurationHours: 10.5,
+            totalTimeSpent: 10.5, rejectionCount: 0, progress: 100,
+            executionState: 'COMPLETE', confidenceScore: 100, stabilityScore: 100,
+            pressureScore: 0, propagationRisk: 0.3,
+            stageStartTime: new Date(now.getTime() - 2 * H),
+            stageHistory: stages([
+                ['NOT_STARTED', 14, 15], ['IN_PROGRESS', 10, 14],
+                ['DRC', 7, 10], ['LVS', 4, 7], ['REVIEW', 2, 4]
+            ]),
+        }).save();
+
+        // ── 2. PMIC_Controller ───────────────────────────────────
+        blocks.b2 = await new Block({
+            name: 'PMIC_Controller', type: 'Power Management', techNode: '7nm',
+            complexity: 'COMPLEX', priority: 9, status: 'REVIEW',
+            healthStatus: 'WARNING', createdBy: creatorId,
+            assignedEngineer: eng('Verification_Engineer_1'),
+            expectedDurationHours: 18, actualDurationHours: 22,
+            totalTimeSpent: 22, rejectionCount: 1, progress: 100,
+            executionState: 'IN_REVIEW', confidenceScore: 72, stabilityScore: 65,
+            pressureScore: 58, propagationRisk: 0.45,
+            rejectionReason: 'LVS netlist mismatch on power rail routing',
+            stageStartTime: new Date(now.getTime() - 3 * H),
+            stageHistory: stages([
+                ['NOT_STARTED', 26, 28], ['IN_PROGRESS', 18, 26],
+                ['DRC', 12, 18], ['LVS', 6, 12], ['REVIEW', 5, 6],
+                ['IN_PROGRESS', 4, 5], ['DRC', 3.5, 4], ['LVS', 3.2, 3.5]
+            ]),
+            rejectionHistory: [{
+                stage: 'REVIEW', timestamp: new Date(now.getTime() - 6 * H),
+                reason: 'LVS netlist mismatch on power rail routing', severity: 'MEDIUM'
+            }],
+        }).save();
+
+        // ── 3. ADC_Interface ─────────────────────────────────────
+        blocks.b3 = await new Block({
+            name: 'ADC_Interface', type: 'Mixed Signal', techNode: '5nm',
+            complexity: 'CRITICAL', priority: 10, status: 'DRC',
+            healthStatus: 'CRITICAL', createdBy: creatorId,
+            assignedEngineer: eng('Layout_Engineer_2'),
+            expectedDurationHours: 26, actualDurationHours: 34,
+            totalTimeSpent: 34, rejectionCount: 2, progress: 55,
+            executionState: 'IN_PROGRESS', confidenceScore: 48, stabilityScore: 40,
+            pressureScore: 82, propagationRisk: 0.65,
+            escalated: true, escalationState: 'ESCALATED', lastEscalatedAt: new Date(now.getTime() - 4 * H),
+            rejectionReason: 'Metal density violation in SAR comparator array',
+            stageStartTime: new Date(now.getTime() - 6 * H),
+            stageHistory: stages([
+                ['NOT_STARTED', 40, 42], ['IN_PROGRESS', 28, 40],
+                ['DRC', 22, 28], ['IN_PROGRESS', 16, 22], ['DRC', 12, 16],
+                ['IN_PROGRESS', 8, 12]
+            ]),
+            rejectionHistory: [
+                { stage: 'DRC', timestamp: new Date(now.getTime() - 22 * H), reason: 'Spacing violation on M5-M6 layers', severity: 'MEDIUM' },
+                { stage: 'DRC', timestamp: new Date(now.getTime() - 12 * H), reason: 'Metal density violation in SAR comparator array', severity: 'HIGH' }
+            ],
+        }).save();
+
+        // ── 4. Clock_Distribution_Network ────────────────────────
+        blocks.b4 = await new Block({
+            name: 'Clock_Distribution_Network', type: 'Clocking', techNode: '5nm',
+            complexity: 'MEDIUM', priority: 6, status: 'IN_PROGRESS',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            assignedEngineer: eng('Layout_Engineer_1'),
+            expectedDurationHours: 14, actualDurationHours: 8,
+            totalTimeSpent: 8, rejectionCount: 0, progress: 45,
+            executionState: 'IN_PROGRESS', confidenceScore: 95, stabilityScore: 92,
+            pressureScore: 15, propagationRisk: 0.2,
+            stageStartTime: new Date(now.getTime() - 8 * H),
+            stageHistory: stages([['NOT_STARTED', 12, 14], ['IN_PROGRESS', 10, 12]]),
+        }).save();
+
+        // ── 5. SRAM_Controller_Array ─────────────────────────────
+        blocks.b5 = await new Block({
+            name: 'SRAM_Controller_Array', type: 'Memory', techNode: '6nm',
+            complexity: 'CRITICAL', priority: 10, status: 'NOT_STARTED',
+            healthStatus: 'CRITICAL', createdBy: creatorId,
+            assignedEngineer: eng('Layout_Engineer_3'),
+            expectedDurationHours: 38, actualDurationHours: 0,
+            totalTimeSpent: 0, rejectionCount: 1, progress: 0,
+            executionState: 'BLOCKED', confidenceScore: 55, stabilityScore: 50,
+            pressureScore: 75, propagationRisk: 0.7,
+            escalated: true, escalationState: 'ESCALATED', lastEscalatedAt: new Date(now.getTime() - 2 * H),
+            rejectionHistory: [{ stage: 'DRC', timestamp: new Date(now.getTime() - 48 * H), reason: 'Previous iteration had SRAM bit-cell spacing violations', severity: 'HIGH' }],
+        }).save();
+
+        // ── 6. PLL_Core_Unit ─────────────────────────────────────
+        blocks.b6 = await new Block({
+            name: 'PLL_Core_Unit', type: 'RF / PLL', techNode: '5nm',
+            complexity: 'CRITICAL', priority: 9, status: 'LVS',
+            healthStatus: 'WARNING', createdBy: creatorId,
+            assignedEngineer: eng('Verification_Engineer_2'),
+            expectedDurationHours: 30, actualDurationHours: 28,
+            totalTimeSpent: 28, rejectionCount: 1, progress: 78,
+            executionState: 'IN_PROGRESS', confidenceScore: 68, stabilityScore: 62,
+            pressureScore: 52, propagationRisk: 0.4,
+            rejectionReason: 'VCO tuning range mismatch in LVS extraction',
+            stageStartTime: new Date(now.getTime() - 5 * H),
+            stageHistory: stages([
+                ['NOT_STARTED', 34, 36], ['IN_PROGRESS', 22, 34],
+                ['DRC', 14, 22], ['LVS', 8, 14], ['IN_PROGRESS', 6, 8]
+            ]),
+            rejectionHistory: [{ stage: 'LVS', timestamp: new Date(now.getTime() - 8 * H), reason: 'VCO tuning range mismatch in LVS extraction', severity: 'MEDIUM' }],
+        }).save();
+
+        // ── 7. IO_Buffer_Array ───────────────────────────────────
+        blocks.b7 = await new Block({
+            name: 'IO_Buffer_Array', type: 'IO', techNode: '7nm',
+            complexity: 'SIMPLE', priority: 4, status: 'COMPLETED',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            assignedEngineer: eng('Layout_Engineer_2'),
+            expectedDurationHours: 8, actualDurationHours: 6.5,
+            totalTimeSpent: 6.5, rejectionCount: 0, progress: 100,
+            executionState: 'COMPLETE', confidenceScore: 100, stabilityScore: 100,
+            pressureScore: 0, propagationRisk: 0.15,
+            stageStartTime: new Date(now.getTime() - 1 * H),
+            stageHistory: stages([
+                ['NOT_STARTED', 10, 11], ['IN_PROGRESS', 6, 10],
+                ['DRC', 4, 6], ['LVS', 2.5, 4], ['REVIEW', 1, 2.5]
+            ]),
+        }).save();
+
+        // ── 8. Thermal_Sensor_Interface ──────────────────────────
+        blocks.b8 = await new Block({
+            name: 'Thermal_Sensor_Interface', type: 'Sensor', techNode: '6nm',
+            complexity: 'MEDIUM', priority: 6, status: 'REVIEW',
+            healthStatus: 'WARNING', createdBy: creatorId,
+            assignedEngineer: eng('Senior_Reviewer_1'),
+            expectedDurationHours: 11, actualDurationHours: 15,
+            totalTimeSpent: 15, rejectionCount: 1, progress: 100,
+            executionState: 'IN_REVIEW', confidenceScore: 70, stabilityScore: 68,
+            pressureScore: 45, propagationRisk: 0.25,
+            rejectionReason: 'Thermal diode placement violates guard ring rules',
+            stageStartTime: new Date(now.getTime() - 4 * H),
+            stageHistory: stages([
+                ['NOT_STARTED', 20, 22], ['IN_PROGRESS', 14, 20],
+                ['DRC', 10, 14], ['LVS', 6, 10], ['REVIEW', 5, 6],
+                ['IN_PROGRESS', 4.5, 5], ['DRC', 4.2, 4.5]
+            ]),
+            rejectionHistory: [{ stage: 'REVIEW', timestamp: new Date(now.getTime() - 6 * H), reason: 'Thermal diode placement violates guard ring rules', severity: 'MEDIUM' }],
+        }).save();
+
+        // ── 9. Power_Gating_Controller ───────────────────────────
+        blocks.b9 = await new Block({
+            name: 'Power_Gating_Controller', type: 'Power', techNode: '5nm',
+            complexity: 'COMPLEX', priority: 9, status: 'NOT_STARTED',
+            healthStatus: 'CRITICAL', createdBy: creatorId,
+            assignedEngineer: null,
+            expectedDurationHours: 24, actualDurationHours: 0,
+            totalTimeSpent: 0, rejectionCount: 0, progress: 0,
+            executionState: 'BLOCKED', confidenceScore: 60, stabilityScore: 55,
+            pressureScore: 70, propagationRisk: 0.8,
+        }).save();
+
+        // ── 10. Security_Encryption_Engine ───────────────────────
+        blocks.b10 = await new Block({
+            name: 'Security_Encryption_Engine', type: 'Security', techNode: '6nm',
+            complexity: 'MEDIUM', priority: 7, status: 'IN_PROGRESS',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            assignedEngineer: eng('Layout_Engineer_3'),
+            expectedDurationHours: 16, actualDurationHours: 9,
+            totalTimeSpent: 9, rejectionCount: 0, progress: 40,
+            executionState: 'IN_PROGRESS', confidenceScore: 90, stabilityScore: 88,
+            pressureScore: 20, propagationRisk: 0.1,
+            stageStartTime: new Date(now.getTime() - 9 * H),
+            stageHistory: stages([['NOT_STARTED', 12, 14], ['IN_PROGRESS', 10, 12]]),
+        }).save();
+
+        // ── Wire Dependencies ────────────────────────────────────
+        const depMap = {
+            b2: ['b1'],           // PMIC depends on Bandgap
+            b3: ['b2'],           // ADC depends on PMIC
+            b4: ['b1'],           // Clock depends on Bandgap
+            b5: ['b3'],           // SRAM depends on ADC
+            b6: ['b4'],           // PLL depends on Clock
+            b8: ['b7'],           // Thermal depends on IO_Buffer
+            b9: ['b5', 'b6'],     // Power_Gating depends on SRAM + PLL
+            b10: ['b7'],          // Security depends on IO_Buffer
+        };
+        for (const [key, deps] of Object.entries(depMap)) {
+            const blk = blocks[key];
+            blk.dependencies = deps.map(d => blocks[d]._id);
+            await blk.save();
+        }
+
+        // ── Generate Audit Trail History ─────────────────────────
+        const logEntries = [
+            { action: 'CREATE', blockId: blocks.b1._id, message: 'Block Bandgap_Reference created.', offset: 72 },
+            { action: 'ASSIGN', blockId: blocks.b1._id, message: 'Assigned to Layout_Engineer_1.', offset: 71 },
+            { action: 'STATUS_UPDATE', blockId: blocks.b1._id, previousValue: 'NOT_STARTED', newValue: 'IN_PROGRESS', message: 'Execution started.', offset: 60 },
+            { action: 'STATUS_UPDATE', blockId: blocks.b1._id, previousValue: 'IN_PROGRESS', newValue: 'DRC', message: 'DRC verification initiated.', offset: 48 },
+            { action: 'STATUS_UPDATE', blockId: blocks.b1._id, previousValue: 'DRC', newValue: 'LVS', message: 'DRC passed. LVS initiated.', offset: 36 },
+            { action: 'STATUS_UPDATE', blockId: blocks.b1._id, previousValue: 'LVS', newValue: 'REVIEW', message: 'LVS clean. Submitted for review.', offset: 24 },
+            { action: 'APPROVE', blockId: blocks.b1._id, previousValue: 'REVIEW', newValue: 'COMPLETED', message: 'Approved by management.', offset: 12 },
+            { action: 'CREATE', blockId: blocks.b3._id, message: 'Block ADC_Interface created.', offset: 48 },
+            { action: 'ASSIGN', blockId: blocks.b3._id, message: 'Assigned to Layout_Engineer_2.', offset: 47 },
+            { action: 'ESCALATE', blockId: blocks.b3._id, previousValue: 'NORMAL', newValue: 'ESCALATED', message: 'Critical path bottleneck. Escalated.', offset: 4 },
+            { action: 'REJECT', blockId: blocks.b3._id, previousValue: 'DRC', newValue: 'IN_PROGRESS', message: 'Metal density violation. Rejected.', offset: 12 },
+            { action: 'CREATE', blockId: blocks.b2._id, message: 'Block PMIC_Controller created.', offset: 50 },
+            { action: 'REJECT', blockId: blocks.b2._id, previousValue: 'REVIEW', newValue: 'IN_PROGRESS', message: 'LVS netlist mismatch. Rejected.', offset: 6 },
+            { action: 'ESCALATE', blockId: blocks.b5._id, previousValue: 'NORMAL', newValue: 'ESCALATED', message: 'Blocked by upstream. Escalated for resolution.', offset: 2 },
         ];
 
-        let blockDocs = {};
-        
-        for (let i = 0; i < dagStructure.length; i++) {
-            const item = dagStructure[i];
-            const assignedEng = engineers.length > 0 ? engineers[i % engineers.length] : null;
-            
-            let baseExpected = 8;
-            if (item.status === 'IN_PROGRESS') baseExpected = 7;
-            else if (item.status === 'DRC') baseExpected = 10;
-            else if (item.status === 'LVS') baseExpected = 6;
-            else if (item.status === 'REVIEW') baseExpected = 2;
-
-            let mult = item.complexity === 'CRITICAL' ? 1.6 : item.complexity === 'COMPLEX' ? 1.3 : item.complexity === 'SIMPLE' ? 0.8 : 1.0;
-            let expectedHours = baseExpected * mult;
-            let actualHours = expectedHours;
-            let rejectionCount = 0;
-
-            if (item.health === 'RISK') actualHours = expectedHours * 1.25;
-            if (item.health === 'CRITICAL') actualHours = expectedHours * 1.45;
-            if (item.health === 'SEVERE' || item.health === 'BOTTLENECK') actualHours = expectedHours * 1.85;
-            if (item.health === 'HEALTHY' && item.status !== 'NOT_STARTED') actualHours = expectedHours * 0.85;
-
-            if (item.health === 'CRITICAL') rejectionCount = 1;
-            if (item.health === 'SEVERE' || item.health === 'BOTTLENECK') rejectionCount = 2;
-
-            const startTime = new Date(now.getTime() - (actualHours * hour));
-            const progress = item.status === 'COMPLETED' ? 100 : (item.status === 'REVIEW' ? 100 : (item.status === 'NOT_STARTED' ? 0 : Math.floor(Math.random() * 80) + 10));
-            const executionState = item.status === 'COMPLETED' ? 'COMPLETE' : 
-                                 (item.status === 'REVIEW' ? 'IN_REVIEW' : 
-                                 (item.status === 'NOT_STARTED' ? (item.deps.length > 0 ? 'BLOCKED' : 'READY') : 'IN_PROGRESS'));
-
-            const block = new Block({
-                name: item.name,
-                complexity: item.complexity,
-                techNode: '7nm',
-                status: item.status,
-                progress,
-                executionState,
-                createdBy: creatorId,
-                assignedEngineer: item.status !== 'NOT_STARTED' ? assignedEng?._id : null,
-                rejectionCount,
-                expectedDurationHours: expectedHours,
-                actualDurationHours: item.status === 'NOT_STARTED' ? 0 : actualHours,
-                stageStartTime: item.status === 'NOT_STARTED' ? null : startTime,
-                healthStatus: (item.status === 'NOT_STARTED' || item.status === 'COMPLETED') ? 'HEALTHY' : item.health,
-                totalTimeSpent: item.status === 'NOT_STARTED' ? 0 : actualHours,
+        for (const entry of logEntries) {
+            await AuditLog.create({
+                userId: creatorId, userRole: 'Manager',
+                action: entry.action, blockId: entry.blockId,
+                previousValue: entry.previousValue || null,
+                newValue: entry.newValue || null,
+                message: entry.message,
+                timestamp: new Date(now.getTime() - entry.offset * H)
             });
-
-            blockDocs[item.id] = await block.save();
         }
 
-        for (const item of dagStructure) {
-            if (item.deps.length > 0) {
-                const currentBlock = blockDocs[item.id];
-                currentBlock.dependencies = item.deps.map(depId => blockDocs[depId]._id);
-                await currentBlock.save();
-            }
-        }
-
-        res.status(200).json({ success: true, message: 'High-fidelity enterprise data seeded.' });
+        res.status(200).json({ success: true, message: 'High-fidelity semiconductor execution data seeded — 10 blocks, dependency graph, audit trail.' });
     } catch (error) {
         next(error);
     }

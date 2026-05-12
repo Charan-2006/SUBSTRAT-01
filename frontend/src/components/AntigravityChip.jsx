@@ -56,8 +56,9 @@ const ceramicMaterial = new THREE.MeshPhysicalMaterial({
 });
 
 const accentMaterial = new THREE.MeshStandardMaterial({
-    color: '#4F46E5', // Indigo
-    emissive: '#4F46E5',
+    color: '#3b82f6', // Premium Blue
+    emissive: '#3b82f6',
+
     emissiveIntensity: 0.5,
     toneMapped: false,
 });
@@ -144,7 +145,7 @@ const FloatingBlock = ({ data }) => {
         >
             <boxGeometry args={[data.w, data.h, data.d]} />
             {/* Vercel/Linear thin stroke outline */}
-            <Edges scale={1.001} threshold={15} color={data.isAccent ? "#6366f1" : "#cbd5e1"} />
+            <Edges scale={1.001} threshold={15} color={data.isAccent ? "#3b82f6" : "#cbd5e1"} />
         </mesh>
     );
 };

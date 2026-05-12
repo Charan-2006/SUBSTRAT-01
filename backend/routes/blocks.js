@@ -26,24 +26,11 @@ const router = express.Router();
 // Apply protection to all routes
 router.use(protect);
 
-// @route   POST /api/blocks
-// @desc    Create a new block (Manager only)
-router.post('/', authorize('Manager'), createBlock);
-
-// @route   PUT /api/blocks/:id
-// @desc    Update a block (Manager only)
-router.put('/:id', authorize('Manager'), updateBlock);
-// @route   DELETE /api/blocks/:id
-// @desc    Delete a block (Manager only)
-router.delete('/:id', authorize('Manager'), deleteBlock);
-
-// @route   GET /api/blocks
-// @desc    Get blocks (Manager and Engineer)
-router.get('/', getBlocks);
-
-// @route   GET /api/blocks/analytics
-// @desc    Get system analytics
-router.get('/analytics', getAnalytics);
+// ──────────────────────────────────────────────
+// STATIC routes MUST be registered before :id
+// to prevent Express from matching "demo", "reset",
+// "analytics", "logs" as a MongoDB ObjectId.
+// ──────────────────────────────────────────────
 
 // @route   POST /api/blocks/demo
 // @desc    Load demo data (Manager only)
@@ -53,9 +40,41 @@ router.post('/demo', authorize('Manager'), loadDemoData);
 // @desc    Reset all blocks and logs (Manager only)
 router.delete('/reset', authorize('Manager'), resetDataset);
 
+// @route   GET /api/blocks/analytics
+// @desc    Get system analytics
+router.get('/analytics', getAnalytics);
+
+// @route   GET /api/blocks/logs/all
+// @desc    Get global audit logs (Manager only)
+router.get('/logs/all', authorize('Manager'), getGlobalLogs);
+
+// @route   POST /api/blocks
+// @desc    Create a new block (Manager only)
+router.post('/', authorize('Manager'), createBlock);
+
+// @route   GET /api/blocks
+// @desc    Get blocks (Manager and Engineer)
+router.get('/', getBlocks);
+
+// ──────────────────────────────────────────────
+// PARAMETERIZED routes (:id) below
+// ──────────────────────────────────────────────
+
+// @route   PUT /api/blocks/:id
+// @desc    Update a block (Manager only)
+router.put('/:id', authorize('Manager'), updateBlock);
+
+// @route   DELETE /api/blocks/:id
+// @desc    Delete a block (Manager only)
+router.delete('/:id', authorize('Manager'), deleteBlock);
+
 // @route   PUT /api/blocks/:id/assign
 // @desc    Assign engineer to a block (Manager only)
 router.put('/:id/assign', authorize('Manager'), assignEngineer);
+
+// @route   DELETE /api/blocks/:id/assign
+// @desc    Remove engineer assignment (Manager only)
+router.delete('/:id/assign', authorize('Manager'), unassignEngineer);
 
 // @route   PUT /api/blocks/:id/status
 // @desc    Update block status (Engineer only)
@@ -80,9 +99,5 @@ router.put('/:id/release', authorize('Manager'), releaseBlock);
 // @route   GET /api/blocks/:id/logs
 // @desc    Get audit logs for a specific block
 router.get('/:id/logs', getBlockLogs);
-
-// @route   GET /api/blocks/logs/all
-// @desc    Get global audit logs (Manager only)
-router.get('/logs/all', authorize('Manager'), getGlobalLogs);
 
 module.exports = router;
