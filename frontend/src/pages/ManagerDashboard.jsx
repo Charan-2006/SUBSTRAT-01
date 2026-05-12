@@ -68,8 +68,8 @@ const ManagerDashboard = ({
     const [intelCollapsed, setIntelCollapsed] = useState(false);
 
     return (
-        <div className="ws-layout" style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
-            <div className="ws-main" style={{ flex: 1, padding: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+        <div className="ws-layout">
+            <div className="ws-main" style={{ padding: 0 }}>
                 {/* Header Bar */}
                 <div className="header-bar" style={{ padding: '16px 24px 0 24px' }}>
                 <div className="header-bar-top">
@@ -168,7 +168,7 @@ const ManagerDashboard = ({
             )}
 
             {activeTab !== 'list' && (
-                <div className="page-content" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div className="page-content" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     {/* Insight Banner */}
                     {analytics?.bottleneckStage && !stageFilter && healthFilter === 'ALL' && (
                         <div className="bottleneck-card fade-in">

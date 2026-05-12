@@ -49,12 +49,14 @@
     overflow: hidden;
 }
 
+
 .cc-main-content {
     display: grid;
     grid-template-columns: 320px 1fr 320px;
     height: 100%;
     overflow: hidden;
 }
+
 
 /* ========== Sidebar Components ========== */
 .cc-sidebar {

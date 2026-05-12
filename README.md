@@ -1,4 +1,4 @@
-# SUBSTRAT — Analog Layout Workflow Automation System
+# SUBSTRAT — Analog Layout Workflow Management System
 
 ## 1. Project Title & Team
 
@@ -12,87 +12,168 @@
 
 ## 2. Problem Statement
 
-Analog layout remains a human-intensive bottleneck in the semiconductor tapeout lifecycle. Traditional tracking methods rely on manual spreadsheets, leading to:
-- **Opacity in Verification:** Minimal real-time visibility into DRC/LVS iteration cycles.
-- **Workflow Stagnation:** Manual status updates cause significant delays in downstream node activation.
-- **Dependency Deadlocks:** Lack of topological intelligence results in critical path failures being discovered too late.
-- **Coordination Overhead:** Excessive time spent on manual sync-up meetings rather than layout execution.
+Analog layout is a complex and time-consuming phase in the semiconductor lifecycle. Teams typically rely on manual spreadsheets to track progress, which leads to several issues:
+- **Verification Bottlenecks:** Hard to track real-time progress during DRC and LVS checks.
+- **Workflow Tracking Difficulty:** Manual status updates cause delays in moving to the next stage.
+- **Dependency Management:** It is difficult to visualize which blocks are holding up others.
+- **Coordination Delays:** Too much time is spent in sync-up meetings instead of active layout work.
 
-SUBSTRAT solves these challenges by treating analog layout as a deterministic orchestration problem, providing real-time telemetry and predictive dependency management.
+SUBSTRAT is a web-based dashboard designed to solve these challenges by providing a centralized platform to track layout blocks, manage dependencies, and monitor overall project progress in real time.
 
 ---
 
 ## 3. Application Flow
 
-1. **Enterprise Authentication:** Secure login via Google OAuth 2.0 with role-based access control.
-2. **Managerial Oversight:** Centralized command center for global project health and KPI monitoring.
-3. **Block Orchestration:** Automated block creation with granular SLA and complexity definitions.
-4. **Topological Mapping:** Configuration of inter-block dependencies to build a dynamic execution graph.
-5. **Engineer Execution:** Targeted workspace for engineers to advance layouts through verification stages.
-6. **Continuous Review:** Integrated approval/rejection pipeline with manager feedback loops.
-7. **Bottleneck Intelligence:** Real-time detection of critical path stalls and SLA drift.
-8. **Automated Tapeout:** Systemic completion triggers and final sign-off orchestration.
+1. **Authentication:** Secure login using Google OAuth 2.0 with separate roles for Managers and Engineers.
+2. **Dashboard Overview:** Managers view project health, track bottlenecks, and manage overall progress.
+3. **Block Management:** Managers create layout blocks and assign them to specific engineers.
+4. **Dependency Tracking:** Blocks can be linked to show dependencies, preventing downstream work until upstream tasks are finished.
+5. **Engineer Workspace:** Engineers view their assigned blocks and update their status through standard verification stages (DRC, LVS).
+6. **Review Process:** Completed layouts are submitted for manager review, where they can be approved or rejected with feedback.
+7. **Bottleneck Detection:** The system highlights blocks that are delayed or blocking other tasks.
+8. **Audit Trail:** All status changes and updates are logged for team accountability.
 
 ---
 
 ## 4. Tech Stack Used
 
-| Layer | Technologies |
+| Category | Technology |
 | :--- | :--- |
-| **Frontend** | React v18, Vite, React Router, Axios |
+| **Frontend** | React v18, Vite, React Router, CSS Modules |
 | **Backend** | Node.js v20, Express.js |
 | **Database** | MongoDB, Mongoose |
-| **Authentication** | Google OAuth 2.0, Passport.js, JWT |
-| **UI Components** | Lucide React, CSS Modules |
-| **State Management** | React Context API |
+| **Authentication**| Google OAuth 2.0, Passport.js, JWT |
+| **UI Icons** | Lucide React |
 
 ---
 
 ## 5. UI Screenshots
 
 ### Authentication
-![Authentication](docs/screenshots/authentication.png)
-*Secure enterprise gateway utilizing Google OAuth 2.0 for role-validated sessions.*
+
+![Authentication](./docs/screenshots/LandingPage.png)
+
+Secure Google OAuth based authentication gateway with role-based access.
+
+---
 
 ### Manager Workspace
-![Manager Workspace](docs/screenshots/manager-workspace.png)
-*Comprehensive orchestration hub providing real-time telemetry across all active layout projects.*
 
-### Engineer Workspace
-![Engineer Workspace](docs/screenshots/engineer-workspace.png)
-*Focused execution cockpit designed for high-velocity layout verification and stage progression.*
+![Manager Workspace](./docs/screenshots/WorkSpace.png)
 
-### Workflow Board & Block Definition
-![Workflow Board](docs/screenshots/workflow-board.png)
-*Visual block lifecycle management with granular status tracking and health indexing.*
+Central orchestration dashboard for workflow tracking, SLA monitoring, and execution visibility.
+
+---
+
+### Control Center
+
+![Control Center](./docs/screenshots/ControlCenter.png)
+
+Operational analytics hub for execution telemetry and bottleneck monitoring.
+
+---
+
+### Timeline View
+
+![Timeline](./docs/screenshots/TimeLine.png)
+
+Visual workflow timeline showing stage progression and execution history.
+
+---
 
 ### Execution Console
-![Execution Console](docs/screenshots/execution-console.png)
-*Precision analytics comparing estimated effort against actual execution hours.*
+
+![Execution Console](./docs/screenshots/Execution.png)
+
+Manager-side execution monitoring with live workflow telemetry and activity tracking.
+
+---
 
 ### Priority Engine
-![Priority Engine](docs/screenshots/priority-engine.png)
-*Weighted intelligence engine surfacing high-risk blocks requiring immediate engineering focus.*
 
-### Dependency Intelligence
-![Dependency Intelligence](docs/screenshots/dependency-intelligence.png)
-*Topological visualization of block inter-dependencies and propagation risk analysis.*
+![Priority Engine](./docs/screenshots/PriorityEngine.png)
+
+Risk-aware prioritization engine surfacing critical workflows and dependency pressure.
+
+---
 
 ### Knowledge Base
-![Knowledge Base](docs/screenshots/knowledge-base.png)
-*Centralized repository for design constraints, technical specs, and best practices.*
 
-### Review Center
-![Review Center](docs/screenshots/review-center.png)
-*Structured quality gate for manager approvals, technical feedback, and sign-off.*
+![Knowledge Base](./docs/screenshots/KnowledgeBase.png)
 
-### Blocker Resolution System
-![Blockers](docs/screenshots/blockers.png)
-*Real-time execution interruption tracking and resolution orchestration.*
+Centralized repository for workflow-linked technical documentation and verification notes.
+
+---
 
 ### Audit Trail
-![Audit Trail](docs/screenshots/audit-trail.png)
-*Forensic event pipeline capturing every project mutation for complete accountability.*
+
+![Audit Trail](./docs/screenshots/AuditTrail.png)
+
+Complete execution history and action logging for workflow traceability.
+
+---
+
+### Engineer Workspace
+
+![Engineer Workspace](./docs/screenshots/MyWork.png)
+
+Focused engineer dashboard for assigned workflow execution and progress tracking.
+
+---
+
+### Engineer Timeline
+
+![Engineer Timeline](./docs/screenshots/TimeLine2.png)
+
+Engineer-side timeline view for tracking verification stage movement.
+
+---
+
+### Engineer Execution
+
+![Engineer Execution](./docs/screenshots/Execution2.png)
+
+Execution workspace for progressing blocks through DRC, LVS, REVIEW, and completion.
+
+---
+
+### Blockers Resolution System
+
+![Blockers](./docs/screenshots/Blockers.png)
+
+Real-time blocker identification with dependency impact visibility.
+
+---
+
+### Review Center
+
+![Reviews](./docs/screenshots/Reviews.png)
+
+Technical review and approval workflow with verification tracking.
+
+---
+
+### Engineer Knowledge Workspace
+
+![Knowledge](./docs/screenshots/Knowledge.png)
+
+Engineer-facing contextual knowledge and workflow reference system.
+
+---
+
+### Requests Workspace
+
+![Requests](./docs/screenshots/Requests.png)
+
+Task request and escalation management interface for engineers.
+
+---
+
+### Block Creation System
+
+![Block Creation](./docs/screenshots/BlockCreation.png)
+
+Workflow block configuration interface with dependency orchestration and estimation controls.
 
 ---
 
@@ -100,7 +181,7 @@ SUBSTRAT solves these challenges by treating analog layout as a deterministic or
 
 ### Prerequisites
 - Node.js v20+
-- MongoDB instance
+- MongoDB instance (local or Atlas)
 
 ### Clone Repository
 ```bash
@@ -108,16 +189,16 @@ git clone https://github.com/Charan-2006/SKYHIGH_EPIC.git
 cd SKYHIGH_EPIC
 ```
 
-### Backend Installation
+### Backend Setup
 ```bash
 cd backend
 npm install
 cp .env.example .env
-# Configure variables in .env
+# Fill in your database and Google OAuth credentials in .env
 npm start
 ```
 
-### Frontend Installation
+### Frontend Setup
 ```bash
 cd ../frontend
 npm install
@@ -128,12 +209,12 @@ npm run dev
 
 ## 7. Environment Variables
 
-Create a `.env` file in the `backend` directory based on the `.env.example`. Ensure that real secrets are never committed to version control.
+Create a `.env` file in the `backend` directory based on `.env.example`. 
 
 ```env
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_signing_key
+JWT_SECRET=your_jwt_secret
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
@@ -144,24 +225,21 @@ FRONTEND_URL=http://localhost:5173
 
 ## 8. Features Implemented
 
-- **Role-Based Orchestration:** Distinctive workspaces for Managers and Engineers with strict permission gating.
-- **Deterministic State Machine:** Six-stage layout lifecycle (NOT_STARTED → DRC → LVS → REVIEW → COMPLETED).
-- **Dependency Propagation:** Automatic unlocking of downstream blocks upon upstream verification.
-- **Weighted Priority Scoring:** Algorithmic task prioritization based on SLA drift and cascading risk.
-- **SLA Telemetry:** Sub-hour drift detection with automated risk reclassification.
-- **Knowledge Management:** Integrated repository for project-specific technical documentation.
-- **Audit Pipeline:** Immutable event logging for every action taken within the platform.
-- **Review Loop:** Technical review system with feedback persistence and rejection cycle tracking.
-- **Real-Time Intelligence:** Live health monitoring and bottleneck surface detection.
+- **Role-Based Workspaces:** Separate dashboards for Managers and Engineers.
+- **State Machine Tracking:** Layouts progress through standard stages (NOT_STARTED, IN_PROGRESS, DRC, LVS, REVIEW, COMPLETED).
+- **Dependency Management:** Upstream block completion status is visually tracked to prevent out-of-order execution.
+- **Manager Review Loop:** Dedicated UI for managers to approve or reject finished layouts.
+- **Event Logging:** All major actions (stage changes, assignments, approvals) are recorded in an audit trail.
+- **Basic Analytics:** Simple metrics showing delayed blocks and bottleneck stages.
 
 ---
 
 ## 9. Known Issues / Limitations
 
-- **Real-Time Sync:** Currently utilizes polling intervals; WebSocket-based bi-directional sync is in the v2.0 roadmap.
-- **Notification Simulation:** In-app alerts are deterministic; external SMTP/Slack integration is pending.
-- **Data Modeling:** Complex non-linear dependencies are currently approximated via weighted DAG edges.
-- **Scaling:** UI virtualization for projects exceeding 500+ concurrent blocks is yet to be optimized.
+- **No WebSocket Sync:** Updates currently rely on standard HTTP requests and polling; real-time sync is not implemented.
+- **Simulated Notifications:** In-app notifications are generated locally; there is no email or Slack integration yet.
+- **Dependency Engine:** The current dependency tracking is simple and could be improved for more complex, non-linear relationships.
+- **Scalability:** The UI is not yet optimized for projects with a very large number of concurrent blocks (e.g., 500+).
 
 ---
 

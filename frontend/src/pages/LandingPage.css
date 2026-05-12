@@ -56,7 +56,8 @@
     padding: 0;
 }
 
-/* --- Grain Overlay --- */
+/* --- Grain Overlay (Temporarily disabled for visibility check) --- */
+/*
 .landing-page::after {
     content: "";
     position: fixed;
@@ -64,11 +65,13 @@
     left: 0;
     width: 100%;
     height: 100%;
-    opacity: 0.02; /* Even more subtle */
+    opacity: 0.02;
     z-index: 9999;
     pointer-events: none;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3%3C/filter%3%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3%3C/svg%3%3E");
 }
+*/
+
 
 /* ============================================================
    NAVBAR
@@ -200,13 +203,13 @@
    ============================================================ */
 .lp-hero {
     position: relative;
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     align-items: center;
     padding: 0 80px;
-    overflow: hidden;
     background: radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.03), transparent 50%);
 }
+
 
 .lp-hero::before {
     content: '';

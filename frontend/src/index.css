@@ -109,9 +109,10 @@
 }
 
 html, body, #root {
-    height: 100%;
+    min-height: 100%;
     margin: 0;
     padding: 0;
+    overflow-x: hidden;
 }
 
 body {
@@ -122,8 +123,8 @@ body {
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow: hidden;
 }
+
 
 .app-shell {
     display: flex;
@@ -137,6 +138,7 @@ body {
     flex: 1;
     overflow: hidden;
 }
+
 
 .app-main {
     flex: 1;
@@ -676,7 +678,7 @@ tbody tr:hover {
 
 .shimmer-active {
     position: relative;
-    overflow: hidden;
+    
 }
 
 .shimmer-active::after {
@@ -781,7 +783,7 @@ tbody tr:hover {
     margin-top: 10px;
     transition: all 0.3s ease;
     position: relative;
-    overflow: hidden;
+    
 }
 
 .cc-sim-preview-v3::before {
@@ -1613,7 +1615,7 @@ tbody tr:hover {
     display: flex;
     flex-direction: column;
     transition: width 0.3s cubic-bezier(0.2, 0, 0, 1);
-    overflow: hidden;
+    
     height: 100%;
     flex-shrink: 0;
 }
@@ -1771,7 +1773,7 @@ tbody tr:hover {
     height: 4px;
     background: var(--bg);
     border-radius: 2px;
-    overflow: hidden;
+    
 }
 
 .progress-fill {
