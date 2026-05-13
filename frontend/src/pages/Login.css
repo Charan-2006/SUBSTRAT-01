@@ -43,8 +43,8 @@
   background: linear-gradient(
     to right,
     var(--bg) 0%,
-    rgba(247, 248, 250, 0.8) 20%,
-    rgba(247, 248, 250, 0) 100%
+    var(--bg) 20%,
+    transparent 100%
   );
   z-index: 2;
 }

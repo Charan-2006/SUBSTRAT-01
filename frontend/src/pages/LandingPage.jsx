@@ -64,6 +64,21 @@ const GoogleIcon = () => (
     </svg>
 );
 
+/* ─── Premium Placeholder for 3D Chip ─── */
+const ChipPlaceholder = () => (
+    <div className="chip-placeholder-wrapper">
+        <div className="chip-placeholder-glow" />
+        <div className="chip-placeholder-base">
+            <div className="chip-placeholder-grid" />
+            <div className="chip-placeholder-chip" />
+            {[...Array(6)].map((_, i) => (
+                <div key={i} className={`chip-placeholder-block b-${i}`} />
+            ))}
+        </div>
+        <div className="chip-loading-text">Initializing Orchestration Engine...</div>
+    </div>
+);
+
 /* ============================================================
    LANDING PAGE COMPONENT
    ============================================================ */

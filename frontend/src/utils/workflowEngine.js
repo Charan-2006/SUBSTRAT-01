@@ -364,6 +364,10 @@ export function calculateDependencyImpact(workflow, allWorkflows = []) {
 
 export function calculateBlockedState(workflow, allWorkflows) {
     if (!workflow || workflow.status === STAGES.COMPLETED) return false;
+    
+    // If already in progress or later, it's functionally unblocked (even if at risk)
+    if (workflow.status !== STAGES.NOT_STARTED) return false;
+
     const { upstream } = calculateDependencyImpact(workflow, allWorkflows);
     return upstream.some(u => u.status !== STAGES.COMPLETED);
 }
@@ -701,7 +705,12 @@ export function getRecommendedEngineers(targetBlock, engineers = [], allBlocks =
             perf,
             reason
         };
-    }).sort((a, b) => b.score - a.score);
+    }).sort((a, b) => {
+        // Primary: Score
+        if (b.score !== a.score) return b.score - a.score;
+        // Secondary: Workload (Less is better)
+        return a.perf.activeCount - b.perf.activeCount;
+    });
 }
 
 export function findBestEngineer(targetBlock, engineers = [], allBlocks = []) {

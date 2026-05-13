@@ -118,11 +118,11 @@
   border-bottom: 2px solid transparent;
 }
 
-.ew-tab:hover { color: var(--text-primary); background: rgba(0,0,0,0.02); }
+.ew-tab:hover { color: var(--text-primary); background: var(--border-light); }
 .ew-tab.active {
   color: var(--accent);
   border-bottom-color: var(--accent);
-  background: rgba(37, 99, 235, 0.04);
+  background: var(--accent-subtle);
 }
 
 .ew-tab-badge {
@@ -305,7 +305,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(248, 250, 252, 0.5);
+  background: var(--border-light);
 }
 
 .ew-wf-name { 
@@ -391,7 +391,7 @@
 
 .ew-wf-footer {
   padding: 12px 18px;
-  background: #fcfdfe;
+  background: var(--surface-hover);
   border-top: 1px solid var(--border-light);
   display: flex;
   justify-content: flex-end;
@@ -464,7 +464,7 @@
   padding: 8px 16px;
   border-radius: 6px;
   border: 1px solid var(--border-light);
-  background: white;
+  background: var(--surface);
   color: var(--text-secondary);
   cursor: pointer;
   display: inline-flex;
@@ -473,7 +473,7 @@
   transition: all 0.12s;
 }
 
-.ew-b:hover { border-color: var(--border); background: #f8fafc; color: var(--text-primary); }
+.ew-b:hover { border-color: var(--border); background: var(--border-light); color: var(--text-primary); }
 .ew-b.b-pri { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); }
 .ew-b.b-pri:hover { background: #1d4ed8; transform: translateY(-1px); }
 .ew-b.b-red { color: #dc2626; }
@@ -553,7 +553,7 @@
 
 .blocker-card.active {
   border-color: var(--accent);
-  background: rgba(37, 99, 235, 0.02);
+  background: var(--accent-subtle);
   transform: translateX(4px);
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
@@ -640,7 +640,7 @@
   padding: 12px;
   border-radius: 8px;
   border: 1px solid var(--border-light);
-  background: white;
+  background: var(--surface);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -648,7 +648,7 @@
 }
 
 .res-btn:hover {
-  background: #f8fafc;
+  background: var(--border-light);
   border-color: var(--border);
 }
 
@@ -793,7 +793,7 @@
     border: 1px solid var(--border-light); color: var(--text-primary);
     cursor: pointer; transition: all 0.12s;
 }
-.kb-intel-btn:hover { border-color: var(--accent); color: var(--accent); background: white; }
+.kb-intel-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--surface); }
 
 .intelligence-footer { text-align: center; }
 

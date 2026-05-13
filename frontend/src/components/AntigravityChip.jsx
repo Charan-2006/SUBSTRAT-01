@@ -173,7 +173,7 @@ const Scene = () => {
                 <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
                     <group rotation={[Math.PI / 6, -Math.PI / 4, 0]}>
                         <SubstrateBase />
-                        <FloatingBlocks count={22} />
+                        <FloatingBlocks count={18} />
                     </group>
                 </Float>
             </PresentationControls>
@@ -197,10 +197,17 @@ const Scene = () => {
 // Exported Container (Handles Responsive sizing automatically via React Three Fiber)
 const AntigravityChip = () => {
     return (
-        <div style={{ width: '100%', height: '100%', minHeight: '400px', background: '#FFFFFF' }}>
+        <div style={{ width: '100%', height: '100%', minHeight: '400px', background: '#FFFFFF', position: 'relative' }}>
             <WebGLErrorBoundary>
-                <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 0, 8], fov: 40 }}>
-                    <Scene />
+                <Canvas 
+                    shadows 
+                    dpr={[1, 1.5]} // Capped dpr for performance
+                    camera={{ position: [0, 0, 8], fov: 40 }}
+                    gl={{ antialias: true, alpha: true }}
+                >
+                    <React.Suspense fallback={null}>
+                        <Scene />
+                    </React.Suspense>
                 </Canvas>
             </WebGLErrorBoundary>
         </div>

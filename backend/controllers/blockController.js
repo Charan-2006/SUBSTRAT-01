@@ -134,7 +134,7 @@ exports.assignEngineer = async (req, res, next) => {
         const isReassignment = previousEngineerId && previousEngineerId.toString() !== engineerId.toString();
 
         if (previousEngineerId && previousEngineerId.toString() === engineerId.toString()) {
-            return res.status(400).json({ success: false, message: 'Block is already assigned to this engineer.' });
+            return res.status(200).json({ success: true, message: 'Block is already assigned to this engineer.', data: block });
         }
 
         // Capacity check for new engineer
@@ -523,8 +523,9 @@ exports.resumeWorkflow = async (req, res, next) => {
              return res.status(403).json({ success: false, message: 'Not authorized to resume this block' });
         }
 
+        const { force } = req.body;
         const allBlocks = await Block.find({});
-        const result = await workflowService.resumeWorkflow(block, allBlocks);
+        const result = await workflowService.resumeWorkflow(block, allBlocks, force);
 
         if (!result.success) {
             return res.status(400).json({ success: false, message: result.message });
@@ -1109,6 +1110,42 @@ exports.uploadProof = async (req, res, next) => {
         res.status(200).json({ success: true, data: block });
     } catch (error) {
         console.error("uploadProof Controller Error:", error);
+        next(error);
+    }
+};
+
+// @desc    Notify owner/reviewer/manager about a blocker
+// @route   POST /api/blocks/:id/notify
+// @access  Private
+exports.notifyBlocker = async (req, res, next) => {
+    try {
+        const { targetUserId, message, type, severity } = req.body;
+        const block = await Block.findById(req.params.id);
+
+        if (!block) {
+            return res.status(404).json({ success: false, message: 'Block not found' });
+        }
+
+        // Create notification for target user
+        await createNotification({
+            userId: targetUserId,
+            message,
+            type: type || 'SYSTEM',
+            severity: severity || 'medium',
+            blockId: block._id
+        });
+
+        // Log the action
+        await logAction({
+            userId: req.user.id,
+            userRole: req.user.role,
+            action: 'NOTIFY',
+            blockId: block._id,
+            message: `Blocker notification sent for ${block.name}: ${message}`
+        });
+
+        res.status(200).json({ success: true, message: 'Notification sent successfully' });
+    } catch (error) {
         next(error);
     }
 };

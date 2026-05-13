@@ -222,15 +222,30 @@ const EngExecution = ({ myBlocks = [], onSelectBlock, onUpdateStatus, onResumeWo
                                                             )}
 
                                                             {stage !== 'COMPLETED' && stage !== 'REVIEW' && (
-                                                                 <button 
-                                                                     className={`ew-b b-pri ${isExecuting === b._id ? 'loading' : ''} ${((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content)) ? 'blocked-action' : ''}`}
-                                                                     style={{ marginLeft: (b.status === 'DRC' || b.status === 'LVS') ? 0 : 'auto' }}
-                                                                     onClick={(e) => handleAdvance(e, b)}
-                                                                     disabled={isExecuting === b._id || b.executionState === 'BLOCKED' || ((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content))}
-                                                                 >
-                                                                     {isExecuting === b._id ? <Activity size={12} className="spin" /> : <Play size={12} />} 
-                                                                     Move to Next Stage
-                                                                 </button>
+                                                                 <div style={{ display: 'flex', gap: 6, marginLeft: (b.status === 'DRC' || b.status === 'LVS') ? 0 : 'auto' }}>
+                                                                     {b.executionState === 'BLOCKED' && (
+                                                                        <button 
+                                                                            className="ew-b" 
+                                                                            style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #fecdd3' }}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (window.confirm("CRITICAL: Force starting skips dependency checks. Proceed at risk?")) {
+                                                                                    onResumeWorkflow?.(b._id, true);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            Force Start
+                                                                        </button>
+                                                                     )}
+                                                                     <button 
+                                                                         className={`ew-b b-pri ${isExecuting === b._id ? 'loading' : ''} ${((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content)) ? 'blocked-action' : ''}`}
+                                                                         onClick={(e) => handleAdvance(e, b)}
+                                                                         disabled={isExecuting === b._id || b.executionState === 'BLOCKED' || ((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content))}
+                                                                     >
+                                                                         {isExecuting === b._id ? <Activity size={12} className="spin" /> : <Play size={12} />} 
+                                                                         Move to Next Stage
+                                                                     </button>
+                                                                 </div>
                                                             )}
                                                         </div>
                                                         {uploadSuccess?.id === b._id && (

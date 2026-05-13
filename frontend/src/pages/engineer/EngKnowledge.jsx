@@ -4,6 +4,7 @@ import {
     CheckCircle2, Clock, Info, ChevronRight, MessageSquare,
     Layers, ExternalLink, Activity
 } from 'lucide-react';
+import SignOffPackageViewer from '../../components/SignOffPackageViewer';
 
 // --- GUIDANCE REPOSITORY ---
 const STAGE_GUIDANCE = {
@@ -59,6 +60,7 @@ const STAGE_GUIDANCE = {
 
 const EngKnowledge = ({ myBlocks = [], blocks = [], requests = [] }) => {
     const [expandedIds, setExpandedIds] = useState({});
+    const [selectedSignOffBlock, setSelectedSignOffBlock] = useState(null);
 
     const toggleExpand = (id) => {
         setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
@@ -317,11 +319,14 @@ const EngKnowledge = ({ myBlocks = [], blocks = [], requests = [] }) => {
                                             )}
 
                                             <div className="kb-intel-actions">
-                                                <button className="kb-intel-btn">
-                                                    <ExternalLink size={12} /> Sign-off Documentation
-                                                </button>
-                                                <button className="kb-intel-btn">
-                                                    <Info size={12} /> Technical Reference
+                                                <button 
+                                                    className="kb-intel-btn btn-primary"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedSignOffBlock(blocks.find(b => b._id === item.blockId) || myBlocks.find(b => b._id === item.blockId));
+                                                    }}
+                                                >
+                                                    <ExternalLink size={12} /> Open Sign-off Package
                                                 </button>
                                             </div>
                                         </div>
@@ -338,6 +343,14 @@ const EngKnowledge = ({ myBlocks = [], blocks = [], requests = [] }) => {
                     </div>
                 )}
             </div>
+
+            {selectedSignOffBlock && (
+                <SignOffPackageViewer 
+                    block={selectedSignOffBlock} 
+                    allBlocks={blocks} 
+                    onClose={() => setSelectedSignOffBlock(null)} 
+                />
+            )}
 
             <div className="ew-side">
                 <div className="ew-sp">

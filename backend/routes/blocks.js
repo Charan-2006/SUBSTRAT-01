@@ -16,7 +16,8 @@ const {
     updateBlock,
     deleteBlock,
     releaseBlock,
-    uploadProof
+    uploadProof,
+    notifyBlocker
 } = require('../controllers/blockController');
 
 const { protect } = require('../middleware/auth');
@@ -104,5 +105,9 @@ router.put('/:id/release', authorize('Manager'), releaseBlock);
 // @route   GET /api/blocks/:id/logs
 // @desc    Get audit logs for a specific block
 router.get('/:id/logs', getBlockLogs);
+
+// @route   POST /api/blocks/:id/notify
+// @desc    Notify about a blocker
+router.post('/:id/notify', notifyBlocker);
 
 module.exports = router;

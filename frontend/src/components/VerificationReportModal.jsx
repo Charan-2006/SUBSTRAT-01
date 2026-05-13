@@ -368,11 +368,45 @@ Release State: ${releaseState}
                             </div>
                         </section>
 
-                        {/* Section 6: Final Signoff */}
+                        {/* Section 6: Technical Audit Trace (Actual Proof) */}
+                        {(block.drcProof?.content || block.lvsProof?.content) && (
+                            <section className="report-section">
+                                <div className="report-section-header">
+                                    <FileText size={16} color="var(--accent)" />
+                                    <h3>SECTION 6 — TECHNICAL AUDIT TRACE</h3>
+                                </div>
+                                <div style={{ 
+                                    background: '#0f172a', 
+                                    color: '#f8fafc', 
+                                    padding: '20px', 
+                                    borderRadius: '8px', 
+                                    fontFamily: 'monospace', 
+                                    fontSize: '12px', 
+                                    lineHeight: '1.5',
+                                    maxHeight: '400px',
+                                    overflowY: 'auto',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <div style={{ color: 'var(--accent)', fontWeight: 700, marginBottom: 12, borderBottom: '1px solid #334155', paddingBottom: 8 }}>
+                                        {doc.stage === 'DRC' ? 'DRC_VERIFICATION_REPORT_RAW.log' : 'LVS_VERIFICATION_REPORT_RAW.log'}
+                                    </div>
+                                    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                                        {doc.stage === 'DRC' ? block.drcProof?.content : block.lvsProof?.content}
+                                        {!((doc.stage === 'DRC' && block.drcProof?.content) || (doc.stage === 'LVS' && block.lvsProof?.content)) && (
+                                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                                                Detailed log trace not found for the requested stage. Displaying cumulative execution intelligence instead.
+                                            </span>
+                                        )}
+                                    </pre>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Section 7: Final Signoff */}
                         <section className="report-section signoff">
                             <div className="report-section-header">
                                 <CheckCircle2 size={16} />
-                                <h3>SECTION 6 — FINAL SIGNOFF & TAPE-OUT ELIGIBILITY</h3>
+                                <h3>SECTION 7 — FINAL SIGNOFF & TAPE-OUT ELIGIBILITY</h3>
                             </div>
                             <div className="signoff-banner">
                                 <div className="signoff-status">

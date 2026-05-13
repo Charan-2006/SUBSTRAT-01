@@ -7,7 +7,7 @@ import {
 import { STAGES, HEALTH_STATES } from '../constants/workflowStates';
 import api from '../api/axios';
 
-const OrchestrationContext = createContext();
+export const OrchestrationContext = createContext();
 
 export const OrchestrationProvider = ({ children, initialBlocks = [], initialEngineers = [] }) => {
     const [blocks, setBlocks] = useState(initialBlocks);
@@ -248,11 +248,23 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
         try {
             await api.delete(`/blocks/${blockId}`);
             logActivity('block_deleted', blockId, {});
+            setBlocks(prev => prev.filter(b => b._id !== blockId));
             await fetchBlocks();
         } catch (err) {
-            console.error("Context Delete error:", err);
+            console.error("Context deleteBlock error:", err);
+            throw err;
         }
-    }, [logActivity, fetchBlocks]);
+    }, [fetchBlocks, logActivity]);
+
+    const notifyBlocker = useCallback(async (blockId, notifyData) => {
+        try {
+            await api.post(`/blocks/${blockId}/notify`, notifyData);
+            logActivity('blocker_notified', blockId, { type: notifyData.type });
+        } catch (err) {
+            console.error("Context notifyBlocker error:", err);
+            throw err;
+        }
+    }, [logActivity]);
 
     const releaseBlock = useCallback(async (blockId) => {
         try {
@@ -288,7 +300,8 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
         onUpdateBlock,
         uploadProof,
         deleteBlock,
-        releaseBlock
+        releaseBlock,
+        notifyBlocker
     };
 
     return (

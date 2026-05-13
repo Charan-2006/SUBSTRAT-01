@@ -215,14 +215,28 @@ const EngMyWork = ({ myBlocks = [], active = [], critical = [], inReview = [], c
                                 <div className="ew-rec-why">{recReason}</div>
                             </div>
                             <div className="ew-rec-cta" onClick={e => e.stopPropagation()}>
-                                <button 
-                                    className={`ew-b b-pri ${isLoading === rec._id ? 'loading' : ''}`} 
-                                    onClick={(e) => handleAdvance(e, rec)}
-                                    disabled={isLoading === rec._id || (rec.executionState === 'BLOCKED') || rec.status === 'REVIEW'}
-                                >
-                                    {isLoading === rec._id ? <Activity size={12} className="spin" /> : <Play size={12} />}
-                                    Move to Next Stage
-                                </button>
+                                     {rec.executionState === 'BLOCKED' && (
+                                        <button 
+                                            className="ew-b" 
+                                            style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #fecdd3' }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (window.confirm("CRITICAL: Proceeding 'At Risk' skips dependency validation. Continue?")) {
+                                                    onResumeWorkflow?.(rec._id, true);
+                                                }
+                                            }}
+                                        >
+                                            Force Start
+                                        </button>
+                                    )}
+                                    <button 
+                                        className={`ew-b b-pri ${isLoading === rec._id ? 'loading' : ''}`} 
+                                        onClick={(e) => handleAdvance(e, rec)}
+                                        disabled={isLoading === rec._id || (rec.executionState === 'BLOCKED') || rec.status === 'REVIEW'}
+                                    >
+                                        {isLoading === rec._id ? <Activity size={12} className="spin" /> : <Play size={12} />}
+                                        Move to Next Stage
+                                    </button>
                                 <button className="ew-b" onClick={() => onSelectBlock?.(rec)}><Info size={12} /> Details</button>
                             </div>
                         </div>
@@ -364,14 +378,30 @@ const EngMyWork = ({ myBlocks = [], active = [], critical = [], inReview = [], c
 
                                     {b.escalated && <span className="ew-t t-red" style={{ marginRight: 8 }}>Escalated</span>}
 
-                                    <button 
-                                        className={`ew-b b-pri ${isCurrentlyExecuting ? 'loading' : ''} ${((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content)) ? 'blocked-action' : ''}`} 
-                                        onClick={(e) => handleAdvance(e, b)}
-                                        disabled={isCurrentlyExecuting || execState === 'BLOCKED' || b.status === 'REVIEW' || ((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content))}
-                                    >
-                                        {isCurrentlyExecuting ? <Activity size={12} className="spin" /> : <Play size={12} />}
-                                        Move to Next Stage
-                                    </button>
+                                     <div style={{ display: 'flex', gap: 8 }}>
+                                        {execState === 'BLOCKED' && (
+                                            <button 
+                                                className="ew-b" 
+                                                style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #fecdd3' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm("CRITICAL: Proceeding 'At Risk' skips dependency validation. This action will be logged. Continue?")) {
+                                                        onResumeWorkflow?.(b._id, true);
+                                                    }
+                                                }}
+                                            >
+                                                Force Start
+                                            </button>
+                                        )}
+                                        <button 
+                                            className={`ew-b b-pri ${isCurrentlyExecuting ? 'loading' : ''} ${((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content)) ? 'blocked-action' : ''}`} 
+                                            onClick={(e) => handleAdvance(e, b)}
+                                            disabled={isCurrentlyExecuting || execState === 'BLOCKED' || b.status === 'REVIEW' || ((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content))}
+                                        >
+                                            {isCurrentlyExecuting ? <Activity size={12} className="spin" /> : <Play size={12} />}
+                                            Move to Next Stage
+                                        </button>
+                                     </div>
                                 </div>
                                 {uploadSuccess?.id === b._id && (
                                     <div style={{ 

@@ -237,10 +237,10 @@ const Dashboard = () => {
         }
     };
 
-    const handleResumeWorkflow = async (blockId) => {
-        const toastId = toast.loading('Executing workflow action...');
+    const handleResumeWorkflow = async (blockId, force = false) => {
+        const toastId = toast.loading(force ? 'Forcing at-risk execution...' : 'Executing workflow action...');
         try {
-            const res = await api.post(`/blocks/${blockId}/resume`);
+            const res = await api.post(`/blocks/${blockId}/resume`, { force });
             await fetchBlocks();
             await fetchAnalytics();
             

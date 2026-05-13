@@ -128,27 +128,31 @@ exports.validateTransition = (currentStatus, nextStatus) => {
 /**
  * CORE EXECUTION ENGINE: Resume Workflow Action
  */
-exports.resumeWorkflow = async (block, allBlocks) => {
+exports.resumeWorkflow = async (block, allBlocks, force = false) => {
     const now = new Date();
     
     // 1. Handle Blocked State Resolution
-    if (block.executionState === 'BLOCKED' || block.status === 'NOT_STARTED') {
+    if (!force && (block.executionState === 'BLOCKED' || block.status === 'NOT_STARTED')) {
         const { valid, message } = await exports.checkDependencyResolution(block, allBlocks);
         if (!valid) {
             block.executionState = 'BLOCKED';
-            return { success: false, message };
+            return { success: false, message: `${message} (Use Force Resume to proceed at risk)` };
         }
     }
 
+    if (force) {
+        block.executionState = 'AT_RISK_PROGRESS';
+    }
+
     // 2. Transition to IN_PROGRESS if not already
-    if (block.executionState !== 'IN_PROGRESS') {
-        block.executionState = 'IN_PROGRESS';
+    if (block.executionState !== 'IN_PROGRESS' && block.executionState !== 'AT_RISK_PROGRESS') {
+        block.executionState = force ? 'AT_RISK_PROGRESS' : 'IN_PROGRESS';
         if (block.status === 'NOT_STARTED') {
             block.status = 'IN_PROGRESS';
             block.stageStartTime = now;
         }
         await block.save();
-        return { success: true, message: `Workflow ${block.name} resumed execution.`, block };
+        return { success: true, message: `Workflow ${block.name} resumed execution ${force ? 'AT RISK' : ''}.`, block };
     }
 
     // 3. Toggle Execution State

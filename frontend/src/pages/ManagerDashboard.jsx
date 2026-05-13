@@ -170,7 +170,7 @@ const ManagerDashboard = ({
             {activeTab !== 'list' && (
                 <div className="page-content" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     {/* Insight Banner */}
-                    {analytics?.bottleneckStage && !stageFilter && healthFilter === 'ALL' && (
+                    {analytics?.bottleneckStage && !stageFilter && healthFilter === 'ALL' && activeTab !== 'execution' && (
                         <div className="bottleneck-card fade-in">
                             <span className="stage-name">{analytics.bottleneckStage}</span>
                             <p style={{ margin: 0, fontSize: 13 }}>
@@ -192,7 +192,7 @@ const ManagerDashboard = ({
                     )}
 
                     {activeTab === 'execution' && (
-                        <ExecutionTab blocks={displayBlocks} engineers={displayEngineers} onSelectBlock={onSelectBlock} onAssign={onAssign} onReview={onReview} onRelease={onRelease} />
+                        <ExecutionTab onSelectBlock={onSelectBlock} />
                     )}
 
                     {activeTab === 'priorityEngine' && (

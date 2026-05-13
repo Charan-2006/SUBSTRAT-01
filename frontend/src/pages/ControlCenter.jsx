@@ -148,26 +148,7 @@ const SimulationControl = ({
                 )}
             </div>
 
-            <div className="cc-group">
-                <label className="cc-label">Optimization Strategy</label>
-                <div className="cc-tabs">
-                    {[
-                        { id: 'SLA', label: 'SLA', icon: Clock, desc: 'Reduce Delay' },
-                        { id: 'LOAD', label: 'Load', icon: User, desc: 'Balance Res' },
-                        { id: 'PATH', label: 'Path', icon: Layers, desc: 'Critical Path' }
-                    ].map(s => (
-                        <button 
-                            key={s.id} 
-                            className={`cc-tab-v2 ${strategy === s.id ? 'active' : ''}`}
-                            onClick={() => setStrategy(s.id)}
-                            title={s.desc}
-                        >
-                            <s.icon size={12} />
-                            <span>{s.label}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
+
 
             <div className="cc-spacer" style={{ height: 20 }} />
 
@@ -399,105 +380,82 @@ const GraphWorkspace = ({ blocks, simResult, selectedNodeId, onSelectNode, isSim
                         />
                     </div>
                 ))}
+
+                <AnimatePresence>
+                    {selectedNodeId && (
+                        <StrategicInsightsPopover 
+                            activeNodeId={selectedNodeId}
+                            blocks={displayBlocks}
+                            simResult={simResult}
+                            x={layout.nodes.find(n => n.block._id === selectedNodeId)?.x || 0}
+                            y={layout.nodes.find(n => n.block._id === selectedNodeId)?.y || 0}
+                        />
+                    )}
+                </AnimatePresence>
             </div>
             
         </div>
     );
 };
 
-const StrategicInsights = ({ 
-    activeNodeId, blocks, simResult, isSimulating, 
-    onSimulate, setTargetBlockId, setExpertId, setStrategy 
+// --- Section 3: Strategic Insights Popover ---
+const StrategicInsightsPopover = ({ 
+    activeNodeId, blocks, simResult, x, y
 }) => {
     const activeBlock = useMemo(() => blocks.find(b => b._id === activeNodeId), [activeNodeId, blocks]);
 
-    if (!activeNodeId) {
-        return (
-            <aside className="cc-sidebar cc-sidebar-right">
-                <div className="cc-empty">
-                    <MousePointer2 size={32} style={{ marginBottom: 16, opacity: 0.3 }} />
-                    <p>Select a node to inspect<br />orchestration impact.</p>
-                </div>
-            </aside>
-        );
-    }
+    if (!activeBlock) return null;
 
-    const sla = calculateSLA(activeBlock);
     const telemetry = activeBlock.telemetry || {};
-    const pressure = telemetry.executionPressure || 0;
-    const propagation = telemetry.propagationRisk || 0;
     const recovery = simResult?.targetId === activeNodeId ? simResult.recoveryHours : (telemetry.recoveryPotential || 0);
+    const confGain = simResult ? simResult.confidenceGain : Math.round((activeBlock.confidenceScore || 0) * 0.2);
+    const riskReduc = simResult ? simResult.riskReduction : 15;
+    const recoveryProb = simResult ? simResult.bottleneckRecoveryProb : 0;
 
     return (
-        <aside className="cc-sidebar cc-sidebar-right">
-            <div className="cc-section-title"><Target size={14} /> Strategic Simulation Preview</div>
-            
-            <div className="cc-group">
-                <div className="cc-sim-preview-v3">
-                    <div className="cc-sim-header-v3">
-                        <Activity size={12} />
-                        <span>PROJECTED RECOVERY PREVIEW</span>
+        <motion.div 
+            className="cc-node-popover"
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            style={{ 
+                position: 'absolute', 
+                left: x + 250, 
+                top: y,
+                zIndex: 200,
+                pointerEvents: 'none'
+            }}
+        >
+            <div className="cc-sim-preview-v3" style={{ width: 280, border: '1px solid var(--cc-accent)', boxShadow: '0 8px 32px rgba(37, 99, 235, 0.2)' }}>
+                <div className="cc-sim-header-v3">
+                    <Zap size={12} fill="var(--cc-accent)" color="var(--cc-accent)" />
+                    <span>STRATEGIC IMPACT PREVIEW</span>
+                </div>
+                
+                <div className="cc-sim-grid-v3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    <div className="cc-sim-item-v3">
+                        <div className="lbl">RECOVERY</div>
+                        <div className="val success" style={{ color: 'var(--cc-success)' }}>+{recovery}h</div>
                     </div>
-                    
-                    <div className="cc-sim-grid-v3">
-                        <div className="cc-sim-item-v3">
-                            <div className="lbl">EST. RECOVERY</div>
-                            <div className="val success">+{recovery}h</div>
-                        </div>
-                        <div className="cc-sim-item-v3">
-                            <div className="lbl">CONFIDENCE</div>
-                            <div className="val info">+{simResult ? simResult.confidenceGain : Math.round(activeBlock.confidence * 0.2)}%</div>
-                        </div>
-                        <div className="cc-sim-item-v3">
-                            <div className="lbl">RISK DELTA</div>
-                            <div className="val danger">-{simResult ? simResult.riskReduction : 15}%</div>
-                        </div>
-                        <div className="cc-sim-item-v3">
-                            <div className="lbl">BOTTLENECK RECOV.</div>
-                            <div className="val warning">{simResult ? simResult.bottleneckRecoveryProb : 0}%</div>
-                        </div>
+                    <div className="cc-sim-item-v3">
+                        <div className="lbl">CONFIDENCE</div>
+                        <div className="val info" style={{ color: 'var(--cc-accent)' }}>+{confGain}%</div>
+                    </div>
+                    <div className="cc-sim-item-v3">
+                        <div className="lbl">RISK DELTA</div>
+                        <div className="val danger" style={{ color: 'var(--cc-danger)' }}>-{riskReduc}%</div>
+                    </div>
+                    <div className="cc-sim-item-v3">
+                        <div className="lbl">PROBABILITY</div>
+                        <div className="val warning" style={{ color: 'var(--cc-warning)' }}>{recoveryProb}%</div>
                     </div>
                 </div>
+                
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--cc-border)', fontSize: 9, color: 'var(--cc-text-ter)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Info size={10} /> Projected optimization based on ghost-state simulation.
+                </div>
             </div>
-
-            <div className="cc-group" style={{ marginTop: 'auto' }}>
-                <div className="cc-section-title" style={{ marginBottom: 12 }}>Strategic Actions</div>
-                <button 
-                    className="cc-action-btn primary" 
-                    onClick={() => {
-                        onSimulate({
-                            targetBlockId: activeNodeId,
-                            expertId: activeBlock?.assignedEngineer?._id || activeBlock?.assignedEngineer,
-                            strategy: 'SLA'
-                        });
-                    }}
-                >
-                    <Zap size={14} /> Simulate Optimization
-                </button>
-                <button 
-                    className="cc-action-btn" 
-                    onClick={() => {
-                        onSimulate({
-                            targetBlockId: activeNodeId,
-                            strategy: 'LOAD'
-                        });
-                    }}
-                >
-                    <User size={14} /> Load Balancing
-                </button>
-                <button 
-                    className="cc-action-btn" 
-                    onClick={() => {
-                        onSimulate({
-                            targetBlockId: activeNodeId,
-                            strategy: 'PATH'
-                        });
-                    }}
-                >
-                    <Database size={14} /> Critical Path Analysis
-                </button>
-            </div>
-        </aside>
+        </motion.div>
     );
 };
 
@@ -521,7 +479,7 @@ const ControlCenter = () => {
 
         if (!targetId) return;
 
-        // Auto-resolve best engineer if missing (e.g. from sidebar quick actions)
+        // Auto-resolve best engineer if missing
         if (!engId) {
             const targetBlock = blocks.find(b => (b._id || b.id) === targetId);
             const bestMatch = findBestEngineer(targetBlock, engineers, blocks);
@@ -544,12 +502,11 @@ const ControlCenter = () => {
         );
         setSimResult(result);
         
-        // Sync UI state if it was an override (e.g. from sidebar)
         if (overrides.targetBlockId) setTargetBlockId(overrides.targetBlockId);
         if (overrides.expertId) setExpertId(overrides.expertId);
         if (overrides.strategy) setStrategy(overrides.strategy);
 
-        toast.success('Orchestration simulation completed', {
+        toast.success('Simulation computed', {
             icon: '📊',
             style: { background: '#1c1c1e', color: '#fff', border: '1px solid var(--cc-accent)' }
         });
@@ -570,8 +527,8 @@ const ControlCenter = () => {
                 
                 toast.success(
                     isReassignment 
-                        ? `Strategic Reassignment: ${simResult.targetName} optimized.` 
-                        : `Optimized ${simResult.targetName} via ${strategy} strategy`, 
+                        ? `Orchestration Strategy Committed.` 
+                        : `Resource Optimized.`, 
                     {
                         icon: '🚀',
                         style: { background: '#1c1c1e', color: '#fff', border: '1px solid var(--cc-accent)' }
@@ -587,23 +544,34 @@ const ControlCenter = () => {
 
     return (
         <div className="cc-redesign-container">
-            <div className="cc-main-content">
-                <SimulationControl 
-                    blocks={blocks} 
-                    engineers={engineers} 
-                    onRun={handleCommitStrategy}
-                    onSimulate={handleRunSimulation}
-                    isSimulating={isSimulating}
-                    activeNodeId={selectedNodeId}
-                    history={history}
-                    targetBlockId={targetBlockId}
-                    setTargetBlockId={setTargetBlockId}
-                    expertId={expertId}
-                    setExpertId={setExpertId}
-                    strategy={strategy}
-                    setStrategy={setStrategy}
-                    simResult={simResult}
-                />
+            <div className="cc-main-content" style={{ gridTemplateColumns: '360px 1fr' }}>
+                <div className="cc-sidebar custom-scrollbar">
+                    <SimulationControl 
+                        blocks={blocks} 
+                        engineers={engineers} 
+                        onRun={handleCommitStrategy}
+                        onSimulate={handleRunSimulation}
+                        isSimulating={isSimulating}
+                        activeNodeId={selectedNodeId}
+                        history={history}
+                        targetBlockId={targetBlockId}
+                        setTargetBlockId={setTargetBlockId}
+                        expertId={expertId}
+                        setExpertId={setExpertId}
+                        strategy={strategy}
+                        setStrategy={setStrategy}
+                        simResult={simResult}
+                    />
+
+                    <div className="cc-divider" style={{ margin: '8px 0', borderTop: '1px solid var(--cc-border)' }} />
+                    
+                    <div className="cc-sidebar-info">
+                        <div className="cc-section-title"><Info size={12} /> Optimization Guide</div>
+                        <p style={{ fontSize: 10, color: 'var(--cc-text-ter)', lineHeight: 1.4 }}>
+                            Select a bottleneck node in the workspace to preview strategic recovery projections and commit orchestration overrides.
+                        </p>
+                    </div>
+                </div>
                 
                 <GraphWorkspace 
                     blocks={blocks}
@@ -612,58 +580,9 @@ const ControlCenter = () => {
                     onSelectNode={setSelectedNodeId}
                     isSimulating={isSimulating}
                 />
-
-                <StrategicInsights 
-                    activeNodeId={selectedNodeId}
-                    blocks={simResult?.optimizedBlocks || blocks}
-                    simResult={simResult}
-                    isSimulating={isSimulating}
-                    onSimulate={handleRunSimulation}
-                    setTargetBlockId={setTargetBlockId}
-                    setExpertId={setExpertId}
-                    setStrategy={setStrategy}
-                />
             </div>
-
-            {/* GLOBAL EXECUTION MONITOR BAR */}
-            <div className="cc-monitor">
-                <div className="cc-monitor-inner">
-                    <div className="cc-monitor-stat">
-                        <span className="cc-monitor-lbl">Baseline Delay</span>
-                        <span className="cc-monitor-val text-danger">
-                            +{blocks.reduce((s, b) => s + (b.delayHours || 0), 0).toFixed(1)}h
-                        </span>
-                    </div>
-                    <div className="cc-monitor-track">
-                        {(() => {
-                            const totalDelay = blocks.reduce((s, b) => s + (b.delayHours || 0), 0);
-                            const baseWidth = Math.min(totalDelay / 2, 100);
-                            const recovWidth = simResult ? Math.min(simResult.recoveryHours / 2, baseWidth) : 0;
-                            
-                            return (
-                                <>
-                                    <div className="cc-monitor-progress bg-danger" style={{ width: `${baseWidth}%` }} />
-                                    {simResult && (
-                                        <div 
-                                            className="cc-monitor-progress bg-success" 
-                                            style={{ 
-                                                width: `${recovWidth}%`, 
-                                                left: `${baseWidth - recovWidth}%` 
-                                            }} 
-                                        />
-                                    )}
-                                </>
-                            );
-                        })()}
-                    </div>
-                    <div className="cc-monitor-stat right">
-                        <span className="cc-monitor-lbl">Projected Recovery</span>
-                        <span className="cc-monitor-val text-success">
-                            {simResult ? `-${simResult.recoveryHours}h` : '0.0h'}
-                        </span>
-                    </div>
-                </div>
-            </div>
+            
+            <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
         </div>
     );
 };

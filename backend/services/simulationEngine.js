@@ -113,7 +113,8 @@ const startSimulation = () => {
                 };
 
                 if (sla.actual > sla.expected * 1.5) { // 50% overrun
-                    // Notify Engineer
+                    // SLA breach notification for engineers disabled per user request
+                    /*
                     if (block.assignedEngineer) {
                         await createNotification({
                             userId: block.assignedEngineer._id || block.assignedEngineer,
@@ -124,8 +125,10 @@ const startSimulation = () => {
                             blockId: block._id
                         });
                     }
+                    */
                     
-                    // Notify Manager
+                    // Notify Manager - Disabled per user request to reduce dashboard noise
+                    /*
                     const creatorId = block.createdBy?._id || block.createdBy;
                     if (creatorId) {
                         await createNotification({
@@ -137,6 +140,7 @@ const startSimulation = () => {
                             blockId: block._id
                         });
                     }
+                    */
                 }
             }
         } catch (err) {

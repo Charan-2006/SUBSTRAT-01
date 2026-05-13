@@ -146,14 +146,30 @@ const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview,
                         <div className="timeline-section-title">Execution Control</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                             {block.status !== 'REVIEW' && (
-                                <button 
-                                    className="ew-b b-pri"
-                                    onClick={() => onResumeWorkflow?.(block._id)}
-                                    disabled={block.executionState === 'BLOCKED'}
-                                    style={{ flex: 1, minWidth: 120 }}
-                                >
-                                    {block.executionState === 'READY' ? 'Start execution' : 'Resume execution'}
-                                </button>
+                                <div style={{ display: 'flex', gap: 8, flex: 1 }}>
+                                    <button 
+                                        className="ew-b b-pri"
+                                        onClick={() => onResumeWorkflow?.(block._id)}
+                                        disabled={block.executionState === 'BLOCKED'}
+                                        style={{ flex: 1, minWidth: 120 }}
+                                    >
+                                        {block.executionState === 'READY' ? 'Start execution' : 'Resume execution'}
+                                    </button>
+                                    
+                                    {block.executionState === 'BLOCKED' && (
+                                        <button 
+                                            className="ew-b"
+                                            style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #fecdd3', flex: 0.8 }}
+                                            onClick={() => {
+                                                if (window.confirm("CRITICAL: Proceeding 'At Risk' skips dependency validation. This action will be logged. Continue?")) {
+                                                    onResumeWorkflow?.(block._id, true);
+                                                }
+                                            }}
+                                        >
+                                            Force Start (At Risk)
+                                        </button>
+                                    )}
+                                </div>
                             )}
 
                             {block.status !== 'COMPLETED' && block.status !== 'REVIEW' && (

@@ -25,6 +25,69 @@ const STAGE_COLORS = {
     'COMPLETED': '#22c55e'
 };
 
+const InsightPanel = ({ block, onSelect, setReplayBlock }) => {
+    if (!block) return null;
+    const totalDuration = block.stageHistory?.reduce((acc, h) => acc + (h.durationHours || 0), 0) || 0;
+    const activeDuration = block.stageStartTime ? (new Date() - new Date(block.stageStartTime)) / (1000 * 60 * 60) : 0;
+    const grandTotal = totalDuration + activeDuration;
+    const stages = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
+    const currentIdx = stages.indexOf(block.status);
+
+    return (
+        <div className="timeline-insight-panel">
+            <div className="insight-content">
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24, alignItems: 'flex-start' }}>
+                    <div>
+                        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{block.name}</h2>
+                        <button 
+                            className="btn btn-sm" 
+                            style={{ marginTop: 8, background: 'var(--accent-subtle)', color: 'var(--accent)', border: 'none' }}
+                            onClick={() => setReplayBlock(block)}
+                        >
+                            <Film size={12} style={{ marginRight: 4 }} /> Smart Replay
+                        </button>
+                    </div>
+                    <button className="nav-icon-btn" onClick={() => onSelect(null)}><X size={18} /></button>
+                </div>
+
+                <div className="sidebar-section">
+                    <div className="sidebar-section-title">Workflow Progress</div>
+                    <div style={{ display: 'flex', height: 8, borderRadius: 4, background: 'var(--bg)', overflow: 'hidden', marginTop: 12 }}>
+                        {stages.map((s, i) => (
+                            <div key={s} style={{ 
+                                flex: 1, 
+                                background: i <= currentIdx ? STAGE_COLORS[s] : 'transparent',
+                                borderRight: '1px solid var(--surface)'
+                            }} />
+                        ))}
+                    </div>
+                </div>
+
+                <div className="sidebar-section" style={{ marginTop: 24 }}>
+                    <div className="sidebar-section-title">Block Details</div>
+                    <div className="detail-row" style={{ marginTop: 12 }}>
+                        <span className="detail-label">Assignee</span>
+                        <span className="detail-value">{block.assignedEngineer?.displayName || 'Unassigned'}</span>
+                    </div>
+                    <div className="detail-row">
+                        <span className="detail-label">Status</span>
+                        <span className="status-badge" style={{ 
+                            background: hexToRgba(STAGE_COLORS[block.status], 0.15), 
+                            color: STAGE_COLORS[block.status] 
+                        }}>
+                            {block.status.replace('_', ' ')}
+                        </span>
+                    </div>
+                    <div className="detail-row">
+                        <span className="detail-label">Total Time</span>
+                        <span className="detail-value">{grandTotal.toFixed(1)}h</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const WorkflowTimeline = ({ blocks = [], onUpdateStatus }) => {
     const [zoomLevel, setZoomLevel] = useState('DAYS'); 
     const [searchTerm, setSearchTerm] = useState('');
@@ -151,74 +214,16 @@ const WorkflowTimeline = ({ blocks = [], onUpdateStatus }) => {
         }
     }, [zoomLevel, todayOffset, dayWidth]);
 
-    // --- Sidebar Panel ---
-    const InsightPanel = ({ block }) => {
-        if (!block) return null;
-        const totalDuration = block.stageHistory?.reduce((acc, h) => acc + (h.durationHours || 0), 0) || 0;
-        const activeDuration = block.stageStartTime ? (new Date() - new Date(block.stageStartTime)) / (1000 * 60 * 60) : 0;
-        const grandTotal = totalDuration + activeDuration;
-        const stages = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
-        const currentIdx = stages.indexOf(block.status);
-
-        return (
-            <div className="timeline-insight-panel">
-                <div className="insight-content">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24, alignItems: 'flex-start' }}>
-                        <div>
-                            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{block.name}</h2>
-                            <button 
-                                className="btn btn-sm" 
-                                style={{ marginTop: 8, background: 'var(--accent-subtle)', color: 'var(--accent)', border: 'none' }}
-                                onClick={() => setReplayBlock(block)}
-                            >
-                                <Film size={12} style={{ marginRight: 4 }} /> Smart Replay
-                            </button>
-                        </div>
-                        <button className="nav-icon-btn" onClick={() => setSelectedBlock(null)}><X size={18} /></button>
-                    </div>
-
-                    <div className="sidebar-section">
-                        <div className="sidebar-section-title">Workflow Progress</div>
-                        <div style={{ display: 'flex', height: 8, borderRadius: 4, background: 'var(--bg)', overflow: 'hidden', marginTop: 12 }}>
-                            {stages.map((s, i) => (
-                                <div key={s} style={{ 
-                                    flex: 1, 
-                                    background: i <= currentIdx ? STAGE_COLORS[s] : 'transparent',
-                                    borderRight: '1px solid var(--surface)'
-                                }} />
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="sidebar-section" style={{ marginTop: 24 }}>
-                        <div className="sidebar-section-title">Block Details</div>
-                        <div className="detail-row" style={{ marginTop: 12 }}>
-                            <span className="detail-label">Assignee</span>
-                            <span className="detail-value">{block.assignedEngineer?.displayName || 'Unassigned'}</span>
-                        </div>
-                        <div className="detail-row">
-                            <span className="detail-label">Status</span>
-                            <span className="status-badge" style={{ 
-                                background: hexToRgba(STAGE_COLORS[block.status], 0.15), 
-                                color: STAGE_COLORS[block.status] 
-                            }}>
-                                {block.status.replace('_', ' ')}
-                            </span>
-                        </div>
-                        <div className="detail-row">
-                            <span className="detail-label">Total Time</span>
-                            <span className="detail-value">{grandTotal.toFixed(1)}h</span>
-                        </div>
-                    </div>
-
-
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className="workflow-timeline-wrapper">
+            {/* Sidebar */}
+            {selectedBlock && (
+                <InsightPanel 
+                    block={selectedBlock} 
+                    onSelect={setSelectedBlock}
+                    setReplayBlock={setReplayBlock}
+                />
+            )}
             {/* Top Control Bar */}
             <div className="timeline-top-controls">
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -364,7 +369,7 @@ const WorkflowTimeline = ({ blocks = [], onUpdateStatus }) => {
             </div>
 
             {/* Sidebar */}
-            {selectedBlock && <InsightPanel block={selectedBlock} />}
+            
 
             {/* Smart Replay Overlay */}
             {replayBlock && <SmartReplay block={replayBlock} onClose={() => setReplayBlock(null)} />}

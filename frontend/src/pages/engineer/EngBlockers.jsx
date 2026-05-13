@@ -1,383 +1,333 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
-    AlertTriangle, Clock, Link2, Zap, ShieldAlert, ChevronRight, 
-    Activity, CheckCircle2, ArrowRight, User, MousePointer2, ExternalLink,
-    Bell, RefreshCw, BarChart3, ShieldCheck
+    AlertTriangle, Clock, Link2, Zap, ShieldAlert, 
+    CheckCircle2, User, ExternalLink, Bell, Info,
+    ShieldCheck, MessageSquare, ChevronRight, X,
+    ArrowUpRight, AlertCircle, Layers, Activity
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { 
-    calculateSLA, 
-    calculateHealth, 
-    calculateDependencyImpact,
-    formatDuration 
-} from '../../utils/workflowEngine';
+import { calculateSLA, formatDuration, calculateDependencyImpact } from '../../utils/workflowEngine';
+import { useOrchestration } from '../../context/OrchestrationContext';
 
-const TYPES = [
-    { id: 'dependency', label: 'Upstream Dependency Block', icon: Link2, clr: '#d97706' },
-    { id: 'review', label: 'Review Latency Lock', icon: Clock, clr: '#7c3aed' },
-    { id: 'congestion', label: 'SLA Variance / Verification Stall', icon: AlertTriangle, clr: '#dc2626' },
-    { id: 'rejection', label: 'Iterative Failure Loop', icon: Zap, clr: '#dc2626' },
-];
+const NotifyModal = ({ blocker, onNotify, onClose }) => {
+    const [sending, setSending] = useState(false);
+    const message = `${blocker.name} is currently blocked waiting for ${blocker.type.toLowerCase()} completion.`;
+    
+    const handleNotify = async () => {
+        setSending(true);
+        try {
+            await onNotify(blocker);
+            toast.success(`Notification sent successfully.`);
+            onClose();
+        } catch (err) {
+            toast.error('Failed to send notification');
+        } finally {
+            setSending(false);
+        }
+    };
 
-const EngBlockers = ({ active = [], onSelectBlock, onEscalate, blocks = [] }) => {
-    const [selectedBlockerId, setSelectedBlockerId] = useState(null);
-    const [lastResolvedAt, setLastResolvedAt] = useState(null);
+    return (
+        <div className="eb-modal-overlay" onClick={onClose}>
+            <div className="eb-modal" onClick={e => e.stopPropagation()}>
+                <div className="eb-modal-header">
+                    <h3>Notify {blocker.type === 'REVIEW' ? 'Reviewer' : blocker.type === 'DEPENDENCY' ? 'Owner' : 'Manager'}</h3>
+                    <button className="eb-close-btn" onClick={onClose}><X size={18} /></button>
+                </div>
+                <div className="eb-modal-body">
+                    <div className="eb-modal-section">
+                        <label>Workflow</label>
+                        <p>{blocker.name}</p>
+                    </div>
+                    <div className="eb-modal-section">
+                        <label>Recipient</label>
+                        <p>{blocker.waitingOn}</p>
+                    </div>
+                    <div className="eb-modal-section">
+                        <label>Message Preview</label>
+                        <div className="eb-message-preview">
+                            "{message}"
+                        </div>
+                    </div>
+                </div>
+                <div className="eb-modal-footer">
+                    <button className="eb-btn eb-btn-secondary" onClick={onClose}>Cancel</button>
+                    <button className="eb-btn eb-btn-primary" onClick={handleNotify} disabled={sending}>
+                        {sending ? 'Sending...' : 'Send Notification'}
+                    </button>
+                </div>
+            </div>
+            <style>{`
+                .eb-modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.2);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                }
+                .eb-modal {
+                    background: white;
+                    width: 100%;
+                    max-width: 400px;
+                    border-radius: 8px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                    border: 1px solid #e2e8f0;
+                }
+                .eb-modal-header {
+                    padding: 16px 20px;
+                    border-bottom: 1px solid #f1f5f9;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .eb-modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: #1e293b; }
+                .eb-close-btn { background: none; border: none; color: #94a3b8; cursor: pointer; }
+                .eb-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+                .eb-modal-section label { display: block; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
+                .eb-modal-section p { margin: 0; font-size: 14px; color: #334155; font-weight: 500; }
+                .eb-message-preview { background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #f1f5f9; font-size: 13px; color: #64748b; font-style: italic; }
+                .eb-modal-footer { padding: 16px 20px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 12px; }
+                .eb-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
+                .eb-btn-secondary { background: white; border-color: #e2e8f0; color: #64748b; }
+                .eb-btn-secondary:hover { background: #f8fafc; border-color: #cbd5e1; }
+                .eb-btn-primary { background: #2563eb; color: white; }
+                .eb-btn-primary:hover { background: #1d4ed8; }
+                .eb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+            `}</style>
+        </div>
+    );
+};
 
-    // 1. REAL-TIME BLOCKER INTELLIGENCE ENGINE
+const EngBlockers = ({ active = [], onSelectBlock, blocks = [] }) => {
+    const { notifyBlocker } = useOrchestration();
+    const [notifyBlockerItem, setNotifyBlockerItem] = useState(null);
+
     const blockers = useMemo(() => {
         const list = [];
         active.forEach(b => {
             const sla = calculateSLA(b);
             const { upstream, allDownstream = [] } = calculateDependencyImpact(b, blocks);
-            const downstreamCount = allDownstream.length;
             
-            // A. Dependency Block Detection
-            const stalledUpstream = upstream.filter(u => u.status !== 'COMPLETED');
+            const stalledUpstream = upstream.filter(u => u.status !== 'COMPLETED' || u.health === 'WARNING' || u.health === 'CRITICAL');
             if (stalledUpstream.length > 0) {
-                stalledUpstream.forEach(u => {
-                    list.push({
-                        id: `dep-${b._id}-${u._id}`,
-                        type: 'dependency',
-                        block: b,
-                        upstreamNode: u,
-                        detail: `Execution Blocked: Waiting on upstream module ${u.name} (${u.status}).`,
-                        sev: u.healthStatus === 'CRITICAL' ? 'critical' : 'warning',
-                        updatedAt: u.stageStartTime || u.updatedAt,
-                        downstreamCount,
-                        recommendation: 'Escalate Upstream Dependency',
-                        action: 'ESCALATE_DEP'
-                    });
+                const primaryDep = stalledUpstream[0];
+                list.push({
+                    id: `dep-${b._id}`,
+                    name: b.name,
+                    block: b,
+                    type: 'DEPENDENCY',
+                    stage: b.status,
+                    assigned: b.assignedEngineer?.displayName || 'Unassigned',
+                    reason: `Waiting for upstream module: ${primaryDep.name}`,
+                    waitingOn: primaryDep.assignedEngineer?.displayName || 'Module Owner',
+                    waitingOnId: primaryDep.assignedEngineer?._id || primaryDep.assignedEngineer,
+                    stalled: sla.actualHours,
+                    blocksDownstream: allDownstream.length > 0,
+                    color: 'orange'
                 });
+                return; 
             }
 
-            // B. Review Stagnation Detection (> 4h in REVIEW)
-            if (b.status === 'REVIEW' && sla.actualHours > 4) {
+            if (b.status === 'REVIEW') {
                 list.push({
                     id: `rev-${b._id}`,
-                    type: 'review',
+                    name: b.name,
                     block: b,
-                    detail: `Review Latency: Signoff pending for ${formatDuration(sla.actualHours)}. Downstream path is idling.`,
-                    sev: sla.actualHours > 8 ? 'critical' : 'warning',
-                    updatedAt: b.stageStartTime,
-                    downstreamCount,
-                    recommendation: 'Request Expedited Review',
-                    action: 'REQUEST_REVIEW'
+                    type: 'REVIEW',
+                    stage: b.status,
+                    assigned: b.assignedEngineer?.displayName || 'Unassigned',
+                    reason: 'Awaiting reviewer sign-off',
+                    waitingOn: b.approvedBy?.displayName || 'Senior Reviewer',
+                    waitingOnId: b.approvedBy?._id || b.createdBy,
+                    stalled: sla.actualHours,
+                    blocksDownstream: allDownstream.length > 0,
+                    color: 'blue'
                 });
+                return;
             }
 
-            // C. Verification Failure / SLA Risk
-            if ((b.status === 'DRC' || b.status === 'LVS') && (b.rejectionCount > 0 || sla.overrun > 0.5)) {
+            if (b.escalated || b.escalationState === 'ESCALATED') {
                 list.push({
-                    id: `ver-${b._id}`,
-                    type: 'congestion',
+                    id: `esc-${b._id}`,
+                    name: b.name,
                     block: b,
-                    detail: `${b.status} Verification Stall: Iteration cycle exceeding deterministic SLA by ${Math.round(sla.overrun * 100)}%.`,
-                    sev: 'critical',
-                    updatedAt: b.stageStartTime,
-                    downstreamCount,
-                    recommendation: 'Split Verification Workload',
-                    action: 'SPLIT_LOAD'
-                });
-            }
-
-            // D. Critical SLA Breach
-            if (sla.overrun > 0.8 && !list.find(l => l.block._id === b._id && l.type === 'dependency')) {
-                list.push({
-                    id: `sla-${b._id}`,
-                    type: 'congestion',
-                    block: b,
-                    detail: `Critical Execution Risk: Total stage overrun detected. Workflow at risk of cascading delay.`,
-                    sev: 'critical',
-                    updatedAt: b.stageStartTime,
-                    downstreamCount,
-                    recommendation: 'Trigger Strategic Escalation',
-                    action: 'ESCALATE'
-                });
-            }
-
-            // E. Iterative Rejection Loop
-            if (b.rejectionCount >= 3) {
-                list.push({
-                    id: `rej-${b._id}`,
-                    type: 'rejection',
-                    block: b,
-                    detail: `Systemic Rejection Loop: ${b.rejectionCount} sequential failures. Spec alignment or expert intervention required.`,
-                    sev: 'critical',
-                    updatedAt: b.updatedAt,
-                    downstreamCount,
-                    recommendation: 'Request Expert Alignment',
-                    action: 'EXPERT_ALIGN'
+                    type: 'ESCALATED',
+                    stage: b.status,
+                    assigned: b.assignedEngineer?.displayName || 'Unassigned',
+                    reason: 'High-priority escalation clearance required',
+                    waitingOn: 'Operations Manager',
+                    waitingOnId: b.createdBy,
+                    stalled: sla.actualHours,
+                    blocksDownstream: allDownstream.length > 0,
+                    color: 'red'
                 });
             }
         });
-        
-        return list.sort((a, b) => (b.sev === 'critical' ? 1 : 0) - (a.sev === 'critical' ? 1 : 0) || b.downstreamCount - a.downstreamCount);
+        return list;
     }, [active, blocks]);
-
-    // Track last resolution timestamp
-    useEffect(() => {
-        if (blockers.length === 0 && lastResolvedAt === null) {
-            setLastResolvedAt(new Date());
-        } else if (blockers.length > 0) {
-            setLastResolvedAt(null);
-        }
-    }, [blockers.length]);
-
-    const activeBlocker = useMemo(() => blockers.find(b => b.id === selectedBlockerId), [blockers, selectedBlockerId]);
-
-    const grouped = useMemo(() => {
-        const g = { dependency: [], review: [], congestion: [], rejection: [] };
-        blockers.forEach(b => { if (g[b.type]) g[b.type].push(b); });
-        return g;
-    }, [blockers]);
-
-    // 4. EXECUTION PRESSURE CALCULATIONS
-    const executionPressure = useMemo(() => {
-        if (active.length === 0) return 0;
-        const totalSlaOverrun = active.reduce((acc, b) => acc + calculateSLA(b).overrun, 0);
-        const totalRejections = active.reduce((acc, b) => acc + (b.rejectionCount || 0), 0);
-        const blockerImpact = blockers.reduce((acc, b) => acc + (b.sev === 'critical' ? 20 : 10), 0);
-        
-        const score = (totalSlaOverrun * 15) + (totalRejections * 5) + blockerImpact;
-        return Math.min(100, Math.round(score));
-    }, [active, blockers]);
-
-    const totalPropagationRisk = useMemo(() => {
-        return blockers.reduce((acc, b) => acc + b.downstreamCount, 0);
-    }, [blockers]);
-
-    const handleAction = (blocker) => {
-        if (blocker.action === 'ESCALATE' || blocker.action === 'ESCALATE_DEP') {
-            onEscalate?.(blocker.block._id);
-        } else {
-            onSelectBlock?.(blocker.block);
+    const handleNotify = async (item) => {
+        try {
+            await notifyBlocker?.(item.block._id, item.waitingOnId);
+            return true;
+        } catch (err) {
+            console.error("Notification failed:", err);
+            throw err;
         }
     };
 
+    const getSeverity = (item) => {
+        if (item.stalled > 12 || item.blocksDownstream) return 'CRITICAL';
+        if (item.stalled > 6) return 'HIGH';
+        if (item.stalled > 2) return 'MEDIUM';
+        return 'LOW';
+    };
+
+    const stats = {
+        total: blockers.length,
+        review: blockers.filter(b => b.type === 'REVIEW').length,
+        dependency: blockers.filter(b => b.type === 'DEPENDENCY').length,
+        escalated: blockers.filter(b => b.type === 'ESCALATED').length
+    };
+
     return (
-        <div className="ew-page-content fade-in">
-            <div className="ew-header-v2" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <div>
-                    <div className="ew-sh" style={{ marginBottom: 4 }}>
-                        <ShieldAlert size={14} className="text-danger" /> EXECUTION INTERRUPTION SYSTEM ({blockers.length})
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Detection active • Deterministic SLA monitoring enabled</div>
+        <div className="eb-page-v3">
+            <header className="eb-header-v3">
+                <div className="eb-title-v3">
+                    <h1>Execution Blockers</h1>
+                    <p>Current interruptions preventing workflow progression</p>
                 </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <div className="ew-kpi-mini">
-                        <span className="lbl">Execution Pressure</span>
-                        <span className="val" style={{ color: executionPressure > 70 ? 'var(--red)' : executionPressure > 40 ? 'var(--amber)' : 'var(--green)' }}>{executionPressure}%</span>
+                <div className="eb-stats-v3">
+                    <div className="eb-stat-v3">
+                        <span className="eb-stat-label">Total</span>
+                        <span className="eb-stat-value">{stats.total}</span>
                     </div>
-                    <div className="ew-kpi-mini">
-                        <span className="lbl">Risk Density</span>
-                        <span className="val text-danger">{Math.round((blockers.filter(b => b.sev === 'critical').length / (active.length || 1)) * 100)}%</span>
+                    <div className="eb-stat-v3">
+                        <span className="eb-stat-label">Review</span>
+                        <span className="eb-stat-value">{stats.review}</span>
                     </div>
-                    <div className="ew-kpi-mini">
-                        <span className="lbl">Propagation Impact</span>
-                        <span className="val text-warning">{totalPropagationRisk} Nodes</span>
+                    <div className="eb-stat-v3">
+                        <span className="eb-stat-label">Dependency</span>
+                        <span className="eb-stat-value">{stats.dependency}</span>
+                    </div>
+                    <div className="eb-stat-v3">
+                        <span className="eb-stat-label text-red">Escalated</span>
+                        <span className="eb-stat-value text-red">{stats.escalated}</span>
                     </div>
                 </div>
+            </header>
+
+            <div className="eb-content-v3">
+                {blockers.length > 0 ? (
+                    <div className="eb-grid-v3">
+                        {blockers.map(b => {
+                            const sev = getSeverity(b);
+                            return (
+                                <div key={b.id} className="eb-card-v3">
+                                    <div className="eb-card-header-v3">
+                                        <div className="eb-card-title-v3">
+                                            <h3>{b.name}</h3>
+                                            <div className="eb-card-meta-v3">
+                                                <span>{b.stage}</span>
+                                                <span className="eb-dot">•</span>
+                                                <span>{b.assigned}</span>
+                                            </div>
+                                        </div>
+                                        <div className={`eb-badge-v3 eb-badge-${sev.toLowerCase()}`}>
+                                            {sev}
+                                        </div>
+                                    </div>
+                                    <div className="eb-card-body-v3">
+                                        <div className="eb-info-v3">
+                                            <label>Reason</label>
+                                            <p>{b.reason}</p>
+                                        </div>
+                                        <div className="eb-details-v3">
+                                            <div className="eb-detail-v3">
+                                                <label>Waiting On</label>
+                                                <div className="eb-val-v3"><User size={12} /> {b.waitingOn}</div>
+                                            </div>
+                                            <div className="eb-detail-v3">
+                                                <label>Duration</label>
+                                                <div className="eb-val-v3"><Clock size={12} /> {formatDuration(b.stalled)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="eb-card-footer-v3">
+                                        <button className="eb-action-btn-v3" onClick={() => setNotifyBlockerItem(b)}>
+                                            <Bell size={14} /> Notify
+                                        </button>
+                                        <button className="eb-action-btn-v3 eb-primary-v3" onClick={() => onSelectBlock?.(b.block)}>
+                                            <ExternalLink size={14} /> Open
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="eb-empty-v3">
+                        <div className="eb-empty-icon-v3"><CheckCircle2 size={32} /></div>
+                        <h3>No active blockers</h3>
+                        <p>All workflows are progressing within SLA targets.</p>
+                    </div>
+                )}
             </div>
-            
-            <div className="ew-grid">
-                <div className="ew-col">
-                    {!blockers.length && (
-                        <div className="ew-empty" style={{ padding: '80px 40px', background: 'linear-gradient(to bottom, var(--surface), var(--bg))' }}>
-                            <div className="ew-success-pulse" style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(34, 197, 94, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-                                <ShieldCheck size={40} className="text-green" />
-                            </div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>Nominal Execution State</div>
-                            <div style={{ display: 'flex', gap: 24, justifyContent: 'center', marginTop: 24 }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Health Confidence</div>
-                                    <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--green)' }}>98.4%</div>
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Stability Trend</div>
-                                    <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--accent)' }}>STABLE</div>
-                                </div>
-                            </div>
-                            <p style={{ color: 'var(--text-tertiary)', marginTop: 24, fontSize: 13, borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
-                                Last execution interruption resolved: {lastResolvedAt ? lastResolvedAt.toLocaleTimeString() : '—'}
-                            </p>
-                        </div>
-                    )}
 
-                    {TYPES.map(type => {
-                        const items = grouped[type.id] || [];
-                        if (!items.length) return null;
-                        return (
-                            <div key={type.id} style={{ marginBottom: 32 }}>
-                                <div className="ew-sh" style={{ color: type.clr, borderBottom: '1px solid var(--border-light)', paddingBottom: 10, marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                                    <span><type.icon size={14} /> {type.label}</span>
-                                    <span style={{ fontSize: 10, opacity: 0.6 }}>{items.length} ACTIVE INTERRUPTIONS</span>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    {items.map((bl) => (
-                                        <div 
-                                            key={bl.id} 
-                                            className={`ew-wf blocker-card ${selectedBlockerId === bl.id ? 'active' : ''} ${bl.sev === 'critical' ? 'sev-critical' : ''}`}
-                                            onClick={() => setSelectedBlockerId(bl.id)}
-                                        >
-                                            <div className="ew-wf-header">
-                                                <div className="ew-wf-name" style={{ fontSize: 15 }}>{bl.block.name}</div>
-                                                <div className="ew-wf-badges">
-                                                    {bl.sev === 'critical' && <span className="ew-t t-red" style={{ animation: 'pulse 2s infinite' }}>CRITICAL PATH RISK</span>}
-                                                    <span className="ew-t t-gry">{bl.block.status}</span>
-                                                </div>
-                                            </div>
-                                            <div className="ew-wf-body" style={{ padding: '12px 18px' }}>
-                                                <div className="ew-wf-task" style={{ fontSize: 13, lineHeight: 1.5, fontWeight: 500 }}>
-                                                    {bl.detail}
-                                                </div>
-                                                <div className="ew-wf-meta" style={{ marginTop: 12 }}>
-                                                    <span className="text-warning" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                        <Activity size={12} /> Downstream Impact: {bl.downstreamCount} Nodes
-                                                    </span>
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                        <Clock size={12} /> Stalled: {formatDuration(calculateSLA(bl.block).actualHours)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="ew-wf-footer" style={{ borderTop: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.02)' }}>
-                                                <div style={{ display: 'flex', gap: 8 }}>
-                                                    <button className="ew-b" onClick={(e) => { e.stopPropagation(); handleAction(bl); }}>
-                                                        <Zap size={12} fill="currentColor" /> {bl.recommendation}
-                                                    </button>
-                                                </div>
-                                                <button className="ew-btn-ghost" onClick={(e) => { e.stopPropagation(); onSelectBlock?.(bl.block); }}>
-                                                    Visual Chain <ChevronRight size={12} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+            {notifyBlockerItem && (
+                <NotifyModal 
+                    blocker={notifyBlockerItem} 
+                    onNotify={handleNotify}
+                    onClose={() => setNotifyBlockerItem(null)} 
+                />
+            )}
 
-                <div className="ew-side">
-                    {activeBlocker ? (
-                        <div className="ew-resolution-panel fade-in">
-                            <div className="ew-sp-title" style={{ color: 'var(--accent)', display: 'flex', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
-                                <span><Activity size={12} /> RESOLUTION INTELLIGENCE</span>
-                                <button className="close-btn" onClick={() => setSelectedBlockerId(null)}><CheckCircle2 size={14} /></button>
-                            </div>
-                            
-                            <div className="ew-res-body">
-                                <div className="ew-res-section">
-                                    <label>STALLED COMPONENT</label>
-                                    <div className="ew-res-val">{activeBlocker.block.name}</div>
-                                </div>
-
-                                {activeBlocker.type === 'dependency' && (
-                                    <div className="ew-res-section">
-                                        <label>UPSTREAM BLOCKER</label>
-                                        <div className="ew-upstream-card">
-                                            <div className="u-name">{activeBlocker.upstreamNode.name}</div>
-                                            <div className="u-meta">
-                                                <User size={10} /> {activeBlocker.upstreamNode.assignedEngineer?.displayName || 'Unassigned'}
-                                                <span className="u-status">{activeBlocker.upstreamNode.status}</span>
-                                            </div>
-                                            <div className="u-impact">
-                                                Est. Unblock: {formatDuration(calculateSLA(activeBlocker.upstreamNode).expectedHours)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="ew-res-section">
-                                    <label>CASCADING IMPACT</label>
-                                    <div className="ew-impact-viz">
-                                        <div className="viz-row">
-                                            <span>Directly Blocked</span>
-                                            <span className="val">{activeBlocker.downstreamCount}</span>
-                                        </div>
-                                        <div className="viz-row">
-                                            <span>Tapeout Delay</span>
-                                            <span className="val text-danger">+{Math.round(calculateSLA(activeBlocker.block).delayHours)}h</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="ew-res-section">
-                                    <label>RESOLUTION PATHS</label>
-                                    <div className="ew-res-actions">
-                                        <button className="res-btn primary" onClick={() => handleAction(activeBlocker)}>
-                                            <Zap size={14} /> {activeBlocker.recommendation}
-                                        </button>
-                                        <button className="res-btn" onClick={() => onSelectBlock?.(activeBlocker.block)}>
-                                            <ExternalLink size={14} /> Open Orchestration Chain
-                                        </button>
-                                        <button className="res-btn" onClick={() => {
-                                            toast.success(`Notification sent to ${activeBlocker.upstreamNode.assignedEngineer?.displayName || 'Owner'}`, {
-                                                icon: '🔔',
-                                                style: { background: '#1c1c1e', color: '#fff', border: '1px solid var(--accent)' }
-                                            });
-                                        }}>
-                                            <Bell size={14} /> Notify Upstream Owner
-                                        </button>
-                                        <button className="res-btn" onClick={() => onEscalate?.(activeBlocker.block._id)}>
-                                            <ShieldAlert size={14} /> Manual Escalation
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="ew-sp" style={{ padding: '40px 20px', textAlign: 'center', background: 'linear-gradient(to bottom, var(--surface), rgba(37, 99, 235, 0.02))' }}>
-                            <div className="ew-search-pulse" style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                                <MousePointer2 size={24} className="text-accent" />
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Select Interruption</div>
-                            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>Select an active stall for forensic resolution intelligence.</p>
-                        </div>
-                    )}
-
-                    {/* 3. CRITICAL PROPAGATION PANEL */}
-                    <div className="ew-sp">
-                        <div className="ew-sp-title"><Activity size={12} /> Critical Propagation</div>
-                        <div className="ew-sp-content">
-                            {blockers.filter(b => b.downstreamCount > 0).slice(0, 5).map((bl, i) => (
-                                <div key={i} className="ew-sp-row" style={{ cursor: 'pointer', padding: '12px 0' }} onClick={() => setSelectedBlockerId(bl.id)}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 700, fontSize: 12 }}>{bl.block.name}</div>
-                                        <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{bl.type} • {bl.sev}</div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div className="ew-t t-amb" style={{ padding: '2px 8px' }}>+{bl.downstreamCount} Nodes</div>
-                                        <div style={{ fontSize: 9, color: 'var(--red)', fontWeight: 800, marginTop: 4 }}>High Tapeout Risk</div>
-                                    </div>
-                                </div>
-                            ))}
-                            {!blockers.some(b => b.downstreamCount > 0) && (
-                                <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                                    No cascading risks detected.
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="ew-sp">
-                        <div className="ew-sp-title"><RefreshCw size={12} className="spin" /> Real-time Telemetry</div>
-                        <div className="ew-sp-content" style={{ gap: 12, marginTop: 8 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                                <span>Monitoring Frequency</span>
-                                <span style={{ fontWeight: 800 }}>3.0s</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                                <span>SLA Boundary Check</span>
-                                <span className="text-green" style={{ fontWeight: 800 }}>ACTIVE</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                                <span>Dependency Graph Sync</span>
-                                <span className="text-green" style={{ fontWeight: 800 }}>OPTIMAL</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <style>{`
+                .eb-page-v3 { padding: 0; }
+                .eb-header-v3 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; border-bottom: 1px solid #f1f5f9; padding-bottom: 24px; }
+                .eb-title-v3 h1 { font-size: 20px; font-weight: 700; color: #1e293b; margin: 0 0 4px; }
+                .eb-title-v3 p { font-size: 13px; color: #64748b; margin: 0; }
+                
+                .eb-stats-v3 { display: flex; gap: 24px; }
+                .eb-stat-v3 { display: flex; flex-direction: column; align-items: flex-end; }
+                .eb-stat-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+                .eb-stat-value { font-size: 18px; font-weight: 800; color: #1e293b; }
+                
+                .eb-grid-v3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; }
+                .eb-card-v3 { background: white; border: 1px solid #e2e8f0; border-radius: 8px; transition: all 0.2s; display: flex; flex-direction: column; }
+                .eb-card-v3:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+                
+                .eb-card-header-v3 { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: flex-start; }
+                .eb-card-title-v3 h3 { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #334155; }
+                .eb-card-meta-v3 { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #94a3b8; font-weight: 500; }
+                .eb-dot { font-size: 8px; }
+                
+                .eb-badge-v3 { padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid transparent; }
+                .eb-badge-critical { background: #fef2f2; color: #ef4444; border-color: #fee2e2; }
+                .eb-badge-high { background: #fff7ed; color: #f97316; border-color: #ffedd5; }
+                .eb-badge-medium { background: #fffbeb; color: #f59e0b; border-color: #fef3c7; }
+                .eb-badge-low { background: #f0fdf4; color: #16a34a; border-color: #dcfce7; }
+                
+                .eb-card-body-v3 { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+                .eb-info-v3 label, .eb-detail-v3 label { display: block; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.02em; }
+                .eb-info-v3 p { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; font-weight: 500; }
+                
+                .eb-details-v3 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+                .eb-val-v3 { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #334155; }
+                
+                .eb-card-footer-v3 { padding: 12px 16px; background: #f8fafc; border-top: 1px solid #f1f5f9; border-radius: 0 0 8px 8px; display: flex; gap: 8px; }
+                .eb-action-btn-v3 { flex: 1; height: 32px; border-radius: 4px; border: 1px solid #e2e8f0; background: white; color: #64748b; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
+                .eb-action-btn-v3:hover { background: #f1f5f9; border-color: #cbd5e1; color: #334155; }
+                .eb-action-btn-v3.eb-primary-v3 { background: #2563eb; border-color: #2563eb; color: white; }
+                .eb-action-btn-v3.eb-primary-v3:hover { background: #1d4ed8; }
+                
+                .eb-empty-v3 { padding: 80px 0; text-align: center; color: #94a3b8; }
+                .eb-empty-icon-v3 { width: 64px; height: 64px; background: #f8fafc; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #22c55e; border: 1px solid #f1f5f9; }
+                .eb-empty-v3 h3 { font-size: 16px; font-weight: 700; color: #475569; margin: 0 0 4px; }
+                .eb-empty-v3 p { font-size: 13px; color: #94a3b8; margin: 0; }
+                
+                .text-red { color: #ef4444 !important; }
+            `}</style>
         </div>
     );
 };
