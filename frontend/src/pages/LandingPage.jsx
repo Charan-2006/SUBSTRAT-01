@@ -225,7 +225,7 @@ const LandingPage = () => {
                             {[
                                 { name: 'ADC_CORE_01', stage: 'DRC', progress: 55, health: 'Healthy' },
                                 { name: 'BIAS_GEN_TOP', stage: 'IN_PROGRESS', progress: 100, health: 'Healthy' },
-                                { name: 'PLL_SYNTH_04', stage: 'LVS', progress: 15, health: 'Warning' }
+                                { name: 'PLL_SYNTH_04', stage: 'LVS', progress: 15, health: 'Bottlenecked' }
                             ].map((row, i) => (
                                 <motion.div 
                                     key={i} 
@@ -247,7 +247,7 @@ const LandingPage = () => {
                                             className="lp-mock-bar-fill" 
                                             style={{ 
                                                 width: `${row.progress}%`,
-                                                background: row.health === 'Warning' ? 'var(--amber)' : 'var(--accent)'
+                                                background: row.health === 'Bottlenecked' ? 'var(--amber)' : 'var(--accent)'
                                             }}
                                             initial={{ width: '0%' }}
                                             whileInView={{ width: `${row.progress}%` }}

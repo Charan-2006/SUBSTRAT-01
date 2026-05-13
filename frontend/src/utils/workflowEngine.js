@@ -13,11 +13,7 @@ export const STAGE_SLA_THRESHOLDS = {
     [STAGES.COMPLETED]: 0
 };
 
-/**
- * CORE EFFORT ESTIMATION ENGINE
- * Formula: estimated_hours = (base_hours * complexity_factor) + (estimated_area * area_weight)
- */
-export const calculateEstimation = (baseHours, complexity, estimatedArea = 0) => {
+export const calculateEstimation = (type, complexity, estimatedArea = 0) => {
     const factors = {
         'SIMPLE': 1.0,
         'MEDIUM': 1.5,
@@ -25,13 +21,24 @@ export const calculateEstimation = (baseHours, complexity, estimatedArea = 0) =>
         'CRITICAL': 4.0
     };
     
+    // Base hours inferred from component type
+    const baseHoursMap = {
+        'Mixed Signal': 12,
+        'Digital': 8,
+        'RF / PLL': 16,
+        'Power Management': 14,
+        'Memory': 20,
+        'Clocking': 10
+    };
+    
     const factor = factors[complexity] || 1.0;
+    const baseHours = baseHoursMap[type] || 10;
     const areaWeight = 0.2; 
     
-    const baseEffort = (Number(baseHours) || 0) * factor;
+    const baseEffort = baseHours * factor;
     const areaEffort = (Number(estimatedArea) || 0) * areaWeight;
     
-    return Math.round(baseEffort + areaEffort);
+    return Math.max(1, Math.round(baseEffort + areaEffort));
 };
 
 export const getDomainIndex = (type) => {
@@ -94,7 +101,7 @@ export function calculateEngineerEffectiveness(engineer, targetBlock) {
 }
 
 export function calculateSLA(workflow) {
-    if (!workflow) return { actualHours: 0, expectedHours: 0, delayHours: 0, overrun: 0, stagnationPenalty: 0 };
+    if (!workflow) return { actualHours: 0, expectedHours: 0, delayHours: 0, overrun: 0, isStagnant: false };
     
     let baseExpected = STAGE_SLA_THRESHOLDS[workflow.status] || 8;
     
@@ -106,14 +113,15 @@ export function calculateSLA(workflow) {
 
     let expectedHours = baseExpected * multiplier;
     
-    // Actual Duration Calculation (Real Telemetry)
-    let actualHours = workflow.totalTimeSpent || 0;
-    
-    // If block is currently active, add the current session time
+    // Stage-specific Duration (for SLA monitoring)
+    let actualHours = 0;
     if (workflow.stageStartTime && workflow.status !== STAGES.COMPLETED && workflow.status !== STAGES.NOT_STARTED) {
         const start = new Date(workflow.stageStartTime).getTime();
-        const sessionHours = (Date.now() - start) / (1000 * 60 * 60);
-        actualHours += sessionHours;
+        actualHours = (Date.now() - start) / (1000 * 60 * 60);
+    } else if (workflow.status === STAGES.COMPLETED) {
+        // For completed blocks, SLA check is against the last stage in history or 0
+        const lastStage = workflow.stageHistory?.[workflow.stageHistory.length - 1];
+        actualHours = lastStage?.durationHours || 0;
     }
 
     const delayHours = Math.max(0, actualHours - expectedHours);
@@ -133,8 +141,18 @@ export function calculatePriorityScore(workflow, blocks = []) {
     
     let score = 10; 
     
+    const isEscalated = workflow.escalated || workflow.escalationState === 'ESCALATED' || workflow.escalationState === 'CRITICAL_ESCALATED';
+    const isBottleneck = workflow.health === HEALTH_STATES.BOTTLENECK;
+    const isUnassigned = !workflow.assignedEngineer;
+    
+    // Extreme Priority Overrides
+    if (isUnassigned) return 200;
+    if (isEscalated && isBottleneck) return 150;
+    if (isBottleneck) return 130;
+    if (isEscalated) return 110;
+    
     // 1. Escalation (Weight: 35)
-    if (workflow.escalated || workflow.escalationState === 'ESCALATED' || workflow.escalationState === 'CRITICAL_ESCALATED') {
+    if (isEscalated) {
         score += 35;
     }
     
@@ -189,11 +207,11 @@ export function calculateHealth(workflow, allWorkflows = []) {
     
     // SIGNAL 2: Stage Stagnation (Breached SLA)
     if (sla.overrun >= 0.5) return HEALTH_STATES.CRITICAL;
-    if (sla.overrun >= 0.2) return HEALTH_STATES.WARNING;
+    if (sla.overrun >= 0.2) return HEALTH_STATES.CRITICAL;
 
     // SIGNAL 4: Dependency Blockage
     const isBlocked = calculateBlockedState(workflow, allWorkflows);
-    if (isBlocked && workflow.status !== STAGES.NOT_STARTED) return HEALTH_STATES.CRITICAL;
+    if (isBlocked) return HEALTH_STATES.BLOCKED;
 
     // SIGNAL 5: Engineer Overload Influence
     if (workflow.assignedEngineer) {
@@ -202,8 +220,8 @@ export function calculateHealth(workflow, allWorkflows = []) {
         if (load.isOverloaded && sla.overrun > 0.1) return HEALTH_STATES.CRITICAL;
     }
 
-    if (rejections >= 1) return HEALTH_STATES.WARNING;
-    if (sla.overrun > 0) return HEALTH_STATES.WARNING;
+    if (rejections >= 1) return HEALTH_STATES.CRITICAL;
+    if (sla.overrun > 0) return HEALTH_STATES.CRITICAL;
 
     return HEALTH_STATES.HEALTHY;
 }
@@ -271,15 +289,21 @@ export function propagateOrchestrationState(allBlocks) {
         const isBlocked = calculateBlockedState(node, graph);
         node.isBlocked = isBlocked;
 
+        const sla = calculateSLA(node);
+
         // BOTTLENECK Logic: Critical node that blocks others
-        const isBlocking = node.status !== STAGES.COMPLETED && node.downstream.length > 0;
-        if (health === HEALTH_STATES.CRITICAL && isBlocking && node.downstream.length >= 2) {
+        const isStalled = node.status !== STAGES.COMPLETED && 
+            (node.status === STAGES.REVIEW || 
+             sla.overrun > 0 || 
+             (node.rejectionCount || 0) > 0 || 
+             health === HEALTH_STATES.CRITICAL);
+             
+        if (isStalled && node.downstream.length > 0) {
             node.health = HEALTH_STATES.BOTTLENECK;
         }
 
         node.priorityScore = calculatePriorityScore(node, graph);
         
-        const sla = calculateSLA(node);
         const pressure = calculatePressureIndex(node, graph);
         const propagation = calculatePropagationImpact(node, graph);
         
@@ -356,34 +380,88 @@ export function calculateEngineerLoad(engineerId, allBlocks) {
 
 export function aggregateKPIs(blocks, engineers = []) {
     const total = blocks.length;
-    let healthy = 0, warning = 0, critical = 0, bottlenecks = 0, totalDelay = 0;
-    let totalEst = 0, totalAct = 0, overdueCount = 0, totalUnassigned = 0;
+    let healthy = 0, warning = 0, critical = 0, bottlenecks = 0;
+    
+    let totalEst = 0;
+    let totalAct = 0;
+    let totalRem = 0;
+    
+    let overdueCount = 0;
+    let totalUnassigned = 0;
+    let breachedBlocks = [];
+    
+    let dependencyPressure = 0;
+    let highestPropagationRiskBlock = null;
+
     const activeEngIds = new Set();
+    const ACTIVE_STAGES = [STAGES.IN_PROGRESS, STAGES.DRC, STAGES.LVS, STAGES.REVIEW];
 
     blocks.forEach(b => {
         const health = b.health || calculateHealth(b, blocks);
         if (health === HEALTH_STATES.HEALTHY) healthy++;
-        else if (health === HEALTH_STATES.WARNING) warning++;
+        else if (health === HEALTH_STATES.WARNING) warning++; 
         else if (health === HEALTH_STATES.CRITICAL) critical++;
         else if (health === HEALTH_STATES.BOTTLENECK) bottlenecks++;
         
         if (!b.assignedEngineer && b.status !== STAGES.COMPLETED) totalUnassigned++;
 
-        const sla = calculateSLA(b);
-        totalDelay += sla.delayHours;
-        if (sla.delayHours > 0 && b.status !== STAGES.COMPLETED) overdueCount++;
+        const estHours = (b.estimatedDurationHours || 0);
+        const actHours = (b.actualDurationHours || 0);
         
-        totalEst += (b.estimatedHours || 0);
-        totalAct += (b.totalTimeSpent || 0);
+        totalAct += actHours;
+        totalEst += estHours;
 
-        if (b.assignedEngineer && b.status !== STAGES.COMPLETED) {
+        if (b.status !== STAGES.COMPLETED) {
+            totalRem += Math.max(estHours - actHours, 0);
+        }
+
+        const sla = calculateSLA(b);
+        
+        // E. SLA Breach Detection
+        // A block is "Breached" if Total Act > Total Est OR Stage Overrun > 0
+        const totalOverrun = actHours > estHours;
+        const stageOverrun = sla.overrun > 0;
+        
+        if (totalOverrun || stageOverrun) {
+            overdueCount++;
+            breachedBlocks.push(b);
+        }
+
+        if (b.assignedEngineer && ACTIVE_STAGES.includes(b.status)) {
             activeEngIds.add(b.assignedEngineer?._id || b.assignedEngineer);
+        }
+
+        if (b.downstream && b.downstream.length > 0) {
+            let weight = 1;
+            if (health === HEALTH_STATES.CRITICAL) weight = 2;
+            if (health === HEALTH_STATES.BOTTLENECK) weight = 3;
+            if (b.status === STAGES.COMPLETED) weight = 0;
+            dependencyPressure += (b.downstream.length * weight);
+        }
+
+        if ((b.telemetry?.propagationRisk || 0) > (highestPropagationRiskBlock?.telemetry?.propagationRisk || 0)) {
+            highestPropagationRiskBlock = b;
         }
     });
 
-    const totalRem = Math.max(0, totalEst - totalAct);
+    const totalVariance = totalAct - totalEst;
+    const breachedPercentage = total > 0 ? Math.round((overdueCount / total) * 100) : 0;
+    
+    // Sort by Absolute Drift (Variance) then by Stage Overrun
+    const highestDriftWorkflow = [...breachedBlocks].sort((a,b) => {
+        const driftB = (b.actualDurationHours || 0) - (b.estimatedDurationHours || 0);
+        const driftA = (a.actualDurationHours || 0) - (a.estimatedDurationHours || 0);
+        if (Math.abs(driftB - driftA) > 0.1) return driftB - driftA;
+        return calculateSLA(b).overrun - calculateSLA(a).overrun;
+    })[0] || null;
+
+    // D. Team Utilization calculation
+    // Fallback to 10 if engineers array is missing to prevent 100% or infinity
+    const totalAvailableEngineers = engineers.length > 0 ? engineers.length : Math.max(activeEngIds.size, 10); 
+    const avgUtilization = (activeEngIds.size / totalAvailableEngineers) * 100;
+
+    // Retain legacy util calculation for specific component compatibility
     const utilization = engineers.length > 0 ? calculateEngineerUtilization(engineers, blocks) : [];
-    const avgUtil = utilization.length > 0 ? utilization.reduce((s, u) => s + u.currentUtil, 0) / utilization.length : 0;
     const overloadedEngineers = utilization.filter(u => u.activeCount >= 5).length;
 
     return { 
@@ -398,12 +476,19 @@ export function aggregateKPIs(blocks, engineers = []) {
         totalEstimatedHours: Math.round(totalEst * 10) / 10,
         totalActualHours: Math.round(totalAct * 10) / 10,
         totalRemainingEffort: Math.round(totalRem * 10) / 10,
-        totalVariance: Math.round(totalDelay * 10) / 10,
+        totalVariance: Math.round(totalVariance * 10) / 10,
+        
         totalUnassigned,
         overloadedEngineers,
         overdueCount,
-        avgUtilization: Math.round(avgUtil),
-        utilization
+        breachedPercentage: Math.round(breachedPercentage),
+        highestDriftWorkflow,
+        
+        avgUtilization: Math.round(avgUtilization),
+        utilization,
+        
+        dependencyPressureScore: dependencyPressure,
+        highestPropagationRiskBlock
     };
 }
 
@@ -578,9 +663,11 @@ export function calculateVelocity(block) {
 }
 
 export function calculateEfficiency(block) {
-    if (!block) return 0;
-    const rejections = block.rejectionCount || 0;
-    return Math.max(0, 100 - (rejections * 15));
+    if (!block || !block.estimatedDurationHours) return 100;
+    const act = block.actualDurationHours || 0;
+    const est = block.estimatedDurationHours;
+    if (act === 0) return 100;
+    return Math.max(0, Math.round((est / act) * 100));
 }
 
 export function getRecommendedEngineers(targetBlock, engineers = [], allBlocks = []) {

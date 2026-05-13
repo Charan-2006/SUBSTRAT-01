@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { 
     Activity, ChevronRight, Play, FileText, AlertTriangle, 
-    Layers, Clock, ShieldAlert, CheckCircle2 
+    Layers, Clock, ShieldAlert, CheckCircle2, Upload
 } from 'lucide-react';
 import { 
     calculateProgress, 
@@ -9,6 +10,7 @@ import {
     calculateSLA, 
     formatDuration 
 } from '../../utils/workflowEngine';
+import { useOrchestration } from '../../context/OrchestrationContext';
 
 const STAGES = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
 const STAGE_COLORS = {
@@ -21,8 +23,11 @@ const STAGE_COLORS = {
 };
 
 const EngExecution = ({ myBlocks = [], onSelectBlock, onUpdateStatus, onResumeWorkflow, onEscalate, blocks = [] }) => {
+    const { uploadProof } = useOrchestration();
     const [expandedBlockId, setExpandedBlockId] = useState(null);
     const [isExecuting, setIsExecuting] = useState(null);
+    const [isUploading, setIsUploading] = useState(null); // blockId_stage
+    const [uploadSuccess, setUploadSuccess] = useState(null); // { id: blockId, message: '' }
     const WORKFLOW_ORDER = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
 
     const handleAdvance = async (e, block) => {
@@ -32,17 +37,62 @@ const EngExecution = ({ myBlocks = [], onSelectBlock, onUpdateStatus, onResumeWo
         const currentIndex = WORKFLOW_ORDER.indexOf(block.status);
         if (currentIndex === -1 || currentIndex >= WORKFLOW_ORDER.length - 2) return;
 
+        // Validation for Proof of Work
+        const needsProof = (block.status === 'DRC' && !block.drcProof?.content) || (block.status === 'LVS' && !block.lvsProof?.content);
+        if (needsProof) {
+            toast.error(`Please upload the ${block.status} verification report first.`);
+            return;
+        }
+
         const nextStatus = WORKFLOW_ORDER[currentIndex + 1];
         
         setIsExecuting(block._id);
         try {
             await onUpdateStatus?.(block._id, nextStatus);
-            onSelectBlock?.(block);
         } catch (err) {
             console.error("Advance stage error:", err);
         } finally {
             setIsExecuting(null);
         }
+    };
+
+    const handleFileUpload = (e, blockId, stage) => {
+        e.stopPropagation();
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        setIsUploading(`${blockId}_${stage}`);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const content = event.target.result;
+            const proofData = {
+                fileName: file.name,
+                content: content,
+                uploadedAt: new Date()
+            };
+            
+            try {
+                if (stage === 'DRC') {
+                    await uploadProof?.(blockId, { drcProof: proofData });
+                } else if (stage === 'LVS') {
+                    await uploadProof?.(blockId, { lvsProof: proofData });
+                }
+                toast.success(`${stage} Report Uploaded Successfully!`);
+                setUploadSuccess({ id: blockId, message: `${stage} Report Uploaded Successfully!` });
+                setTimeout(() => setUploadSuccess(null), 4000);
+            } catch (err) {
+                console.error("Proof upload error:", err);
+                const msg = err.response?.data?.message || err.message || "Unknown error";
+                toast.error(`Failed to upload ${stage}: ${msg}`);
+            } finally {
+                setIsUploading(null);
+            }
+        };
+        reader.onerror = () => {
+            toast.error("Error reading file.");
+            setIsUploading(null);
+        };
+        reader.readAsText(file);
     };
 
     const lanes = useMemo(() => {
@@ -154,17 +204,52 @@ const EngExecution = ({ myBlocks = [], onSelectBlock, onUpdateStatus, onResumeWo
                                                         </div>
                                                         <div className="ew-wf-footer" style={{ background: 'transparent', border: 'none', padding: '12px 0 0' }} onClick={e => e.stopPropagation()}>
                                                             <button className="ew-b" onClick={() => onSelectBlock?.(b)}><FileText size={12} /> View Details</button>
+                                                            
+                                                            {(b.status === 'DRC' || b.status === 'LVS') && (
+                                                                <div style={{ marginLeft: 'auto', marginRight: 8 }}>
+                                                                    {((b.status === 'DRC' && b.drcProof?.content) || (b.status === 'LVS' && b.lvsProof?.content)) ? (
+                                                                        <div className="proof-status-pill">
+                                                                            <CheckCircle2 size={10} /> Proof Attached
+                                                                        </div>
+                                                                    ) : (
+                                                                        <label className={`ew-b ${isUploading === `${b._id}_${b.status}` ? 'loading' : ''}`} style={{ cursor: 'pointer', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px dashed #f59e0b' }}>
+                                                                            {isUploading === `${b._id}_${b.status}` ? <Activity size={12} className="spin" /> : <Upload size={12} />} 
+                                                                            {isUploading === `${b._id}_${b.status}` ? 'Uploading...' : `Upload ${b.status}`}
+                                                                            <input type="file" accept=".txt" onChange={(e) => handleFileUpload(e, b._id, b.status)} hidden disabled={isUploading} />
+                                                                        </label>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
                                                             {stage !== 'COMPLETED' && stage !== 'REVIEW' && (
                                                                  <button 
-                                                                     className={`ew-b b-pri ${isExecuting === b._id ? 'loading' : ''}`}
+                                                                     className={`ew-b b-pri ${isExecuting === b._id ? 'loading' : ''} ${((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content)) ? 'blocked-action' : ''}`}
+                                                                     style={{ marginLeft: (b.status === 'DRC' || b.status === 'LVS') ? 0 : 'auto' }}
                                                                      onClick={(e) => handleAdvance(e, b)}
-                                                                     disabled={isExecuting === b._id || b.executionState === 'BLOCKED'}
+                                                                     disabled={isExecuting === b._id || b.executionState === 'BLOCKED' || ((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content))}
                                                                  >
                                                                      {isExecuting === b._id ? <Activity size={12} className="spin" /> : <Play size={12} />} 
                                                                      Move to Next Stage
                                                                  </button>
-                                                             )}
+                                                            )}
                                                         </div>
+                                                        {uploadSuccess?.id === b._id && (
+                                                            <div style={{ 
+                                                                padding: '6px 12px', 
+                                                                background: '#16a34a', 
+                                                                color: 'white', 
+                                                                fontSize: 10, 
+                                                                fontWeight: 700, 
+                                                                display: 'flex', 
+                                                                alignItems: 'center', 
+                                                                gap: 6,
+                                                                marginTop: 12,
+                                                                borderRadius: 4,
+                                                                animation: 'slideUp 0.3s ease'
+                                                            }}>
+                                                                <CheckCircle2 size={10} /> {uploadSuccess.message}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

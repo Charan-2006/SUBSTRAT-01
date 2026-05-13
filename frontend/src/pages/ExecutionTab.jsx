@@ -199,7 +199,7 @@ function getDepLabel(b,all) {
         
         const breakdown = unreleasedBlocks.map(b => {
             const sla = calculateSLA(b);
-            const est = b.estimatedHours || 0;
+            const est = b.estimatedDurationHours || 0;
             const act = sla.actualHours || 0;
             const diff = act - est;
             
@@ -301,7 +301,7 @@ function getDepLabel(b,all) {
                                                             <span className={`exec-tag ${status.cls}`}>{status.label}</span>
                                                             {over>0.1&&<span className="exec-tag exec-tag-red">SLA breached: +{fmt(over)}</span>}
                                                             {!isTapeout&&age>0&&<span className="exec-tag exec-tag-gray">{age.toFixed(1)}d in flow</span>}
-                                                            {isTapeout&&<span className="exec-tag exec-tag-gray">Exec time: {fmt(block.totalTimeSpent)}</span>}
+                                                            {isTapeout&&<span className="exec-tag exec-tag-gray">Exec time: {fmt(block.actualDurationHours)}</span>}
                                                         </div>
                                                         {(depLbl||cause)&&<div className="exec-task-detail">{depLbl&&<span>{depLbl}</span>}{depLbl&&cause&&' • '}{cause&&<span>{cause}</span>}</div>}
                                                     </div>

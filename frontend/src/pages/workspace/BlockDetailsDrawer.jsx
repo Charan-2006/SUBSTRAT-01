@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     X, Clock, AlertTriangle, Link2, ArrowRight, Zap, Shield, TrendingUp, 
     History, Activity, ChevronRight, Edit3, UserPlus, ZapOff, CheckCircle2,
-    BarChart3, Layers, Settings, MessageSquare, Info
+    BarChart3, Layers, Settings, MessageSquare, Info, Eye, Upload, CheckSquare, FileText
 } from 'lucide-react';
 import api from '../../api/axios';
 import { 
@@ -10,7 +10,7 @@ import {
     generateRecommendedAction, formatDuration, calculateBlockedState,
     calculateVelocity, calculateEfficiency, calculateEstimation
 } from '../../utils/workflowEngine';
-import { STAGES, HEALTH_STATES, BLOCK_TYPES, TECH_NODES, COMPLEXITY_LEVELS } from '../../constants/workflowStates';
+import { STAGES, HEALTH_STATES, BLOCK_TYPES, TECH_NODES, COMPLEXITY_LEVELS, VALID_TRANSITIONS } from '../../constants/workflowStates';
 import { useOrchestration } from '../../context/OrchestrationContext';
 import DependencySelector from '../../components/DependencySelector';
 
@@ -33,6 +33,30 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
     const [rejectionActive, setRejectionActive] = useState(startWithRejection);
     const [rejectionReason, setRejectionReason] = useState('');
     const [isEstimateOverridden, setIsEstimateOverridden] = useState(false);
+    const [proofViewer, setProofViewer] = useState(null);
+
+    const handleFileUpload = (e, stage) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const content = event.target.result;
+            const proofData = {
+                fileName: file.name,
+                content: content,
+                uploadedAt: new Date()
+            };
+            
+            if (stage === 'DRC') {
+                onUpdateBlock(block._id, { drcProof: proofData });
+            } else if (stage === 'LVS') {
+                onUpdateBlock(block._id, { lvsProof: proofData });
+            }
+            alert(`${stage} Verification Report uploaded successfully! You can now advance to the next stage.`);
+        };
+        reader.readAsText(file);
+    };
 
     // Sync edit mode if prop changes
     useEffect(() => {
@@ -52,8 +76,7 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
             type: block.type,
             techNode: block.techNode,
             complexity: block.complexity,
-            baseHours: block.baseHours || 0,
-            estimatedHours: block.estimatedHours || 0,
+            estimatedDurationHours: block.estimatedDurationHours || 0,
             estimatedArea: block.estimatedArea || 0,
             priority: block.priority || 5,
             description: block.description || '',
@@ -67,15 +90,15 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
         const newData = { ...editData, [field]: value };
         
         // Auto-recalculate estimation if not overridden
-        if ((field === 'baseHours' || field === 'complexity' || field === 'estimatedArea') && !isEstimateOverridden) {
-            newData.estimatedHours = calculateEstimation(
-                field === 'baseHours' ? Number(value) : editData.baseHours,
+        if ((field === 'type' || field === 'complexity' || field === 'estimatedArea') && !isEstimateOverridden) {
+            newData.estimatedDurationHours = calculateEstimation(
+                field === 'type' ? value : editData.type,
                 field === 'complexity' ? value : editData.complexity,
                 field === 'estimatedArea' ? Number(value) : editData.estimatedArea
             );
         }
 
-        if (field === 'estimatedHours') {
+        if (field === 'estimatedDurationHours') {
             setIsEstimateOverridden(true);
         }
 
@@ -205,6 +228,22 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
                                         <Zap size={14} /> <span>Escalate</span>
                                     </button>
                                 )}
+                                {VALID_TRANSITIONS[block.status]?.length > 0 && block.status !== 'REVIEW' && (
+                                    <button 
+                                        className={`action-btn-refined next-stage ${(block.status === 'DRC' && !block.drcProof?.content) || (block.status === 'LVS' && !block.lvsProof?.content) ? 'blocked' : 'success'}`}
+                                        onClick={() => {
+                                            const needsProof = (block.status === 'DRC' && !block.drcProof?.content) || (block.status === 'LVS' && !block.lvsProof?.content);
+                                            if (needsProof) {
+                                                alert(`MANDATORY PROOF REQUIRED: You must upload the ${block.status} .txt report before moving to the next stage.`);
+                                                return;
+                                            }
+                                            onUpdateBlock(block._id, { status: VALID_TRANSITIONS[block.status][0] });
+                                        }}
+                                    >
+                                        <ArrowRight size={14} /> 
+                                        <span>Advance to {VALID_TRANSITIONS[block.status][0].replace(/_/g, ' ')}</span>
+                                    </button>
+                                )}
                             </div>
                         )}
                         <button onClick={onClose} className="header-close-btn">
@@ -214,29 +253,121 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
                 </div>
 
                 <div className="drawer-scroll-body">
-                    
+                    {/* PROOF OF WORK TRACKING (DRC/LVS/REVIEW ONLY) */}
+                    {(['DRC', 'LVS', 'REVIEW', 'COMPLETED'].includes(block.status)) && (
+                        <div className="drawer-content-section proof-section">
+                            <SectionHeader icon={FileText} title="Proof of Work Traceability" />
+                            
+                            {((block.status === 'DRC' && !block.drcProof?.content) || (block.status === 'LVS' && !block.lvsProof?.content)) && (
+                                <div className="proof-warning-banner">
+                                    <AlertTriangle size={14} />
+                                    <span>Engineering Sign-off Blocked: Upload technical report to enable stage transition.</span>
+                                </div>
+                            )}
+
+                            <div className="proof-grid-refined">
+                                <div className="proof-item-card">
+                                    <div className="proof-item-info">
+                                        <div className="proof-icon-box drc"><Shield size={14} /></div>
+                                        <div className="proof-details">
+                                            <div className="proof-name">DRC Verification Proof</div>
+                                            <div className="proof-meta">
+                                                {block.drcProof?.fileName ? (
+                                                    <span className="uploaded">Uploaded: {new Date(block.drcProof.uploadedAt).toLocaleDateString()}</span>
+                                                ) : (
+                                                    <span className="pending">Required for DRC signoff</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="proof-item-actions">
+                                        {block.drcProof?.content ? (
+                                            <button className="proof-action-btn view" onClick={() => setProofViewer({ title: 'DRC Verification Report', ...block.drcProof })}>
+                                                <Eye size={12} /> View Report
+                                            </button>
+                                        ) : (
+                                            block.status === 'DRC' && (
+                                                <label className="proof-action-btn upload">
+                                                    <Upload size={12} /> Import .txt
+                                                    <input type="file" accept=".txt" onChange={(e) => handleFileUpload(e, 'DRC')} hidden />
+                                                </label>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="proof-item-card">
+                                    <div className="proof-item-info">
+                                        <div className="proof-icon-box lvs"><CheckSquare size={14} /></div>
+                                        <div className="proof-details">
+                                            <div className="proof-name">LVS Extraction Proof</div>
+                                            <div className="proof-meta">
+                                                {block.lvsProof?.fileName ? (
+                                                    <span className="uploaded">Uploaded: {new Date(block.lvsProof.uploadedAt).toLocaleDateString()}</span>
+                                                ) : (
+                                                    <span className="pending">Required for LVS signoff</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="proof-item-actions">
+                                        {block.lvsProof?.content ? (
+                                            <button className="proof-action-btn view" onClick={() => setProofViewer({ title: 'LVS Extraction Report', ...block.lvsProof })}>
+                                                <Eye size={12} /> View Report
+                                            </button>
+                                        ) : (
+                                            block.status === 'LVS' && (
+                                                <label className="proof-action-btn upload">
+                                                    <Upload size={12} /> Import .txt
+                                                    <input type="file" accept=".txt" onChange={(e) => handleFileUpload(e, 'LVS')} hidden />
+                                                </label>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 2. EXECUTION OVERVIEW */}
                     <div className="drawer-content-section">
                         <SectionHeader icon={BarChart3} title="Execution Metrics" />
                         <div className="metrics-grid-3">
                             <div className="metric-tile">
-                                <span className="tile-label">Actual Hours</span>
+                                <span className="tile-label">Stage Time</span>
                                 <span className="tile-value" style={{ color: sla.delayHours > 0 ? 'var(--red)' : 'inherit' }}>
                                     {formatDuration(sla.actualHours)}
                                 </span>
-                                <span className="tile-sub">Logged Telemetry</span>
+                                <span className="tile-sub">Current Stage</span>
                             </div>
                             <div className="metric-tile">
-                                <span className="tile-label">Expected SLA</span>
+                                <span className="tile-label">Stage Target</span>
                                 <span className="tile-value">{formatDuration(sla.expectedHours)}</span>
-                                <span className="tile-sub">Target Window</span>
+                                <span className="tile-sub">SLA Window</span>
                             </div>
                             <div className="metric-tile">
-                                <span className="tile-label">SLA Variance</span>
+                                <span className="tile-label">Stage Variance</span>
                                 <span className="tile-value" style={{ color: sla.delayHours > 0 ? 'var(--red)' : 'var(--green)' }}>
                                     {sla.delayHours > 0 ? `+${formatDuration(sla.delayHours)}` : '0h'}
                                 </span>
-                                <span className="tile-sub">Drift / Overrun</span>
+                                <span className="tile-sub">SLA Drift</span>
+                            </div>
+                            <div className="metric-tile">
+                                <span className="tile-label">Total Actual</span>
+                                <span className="tile-value">{formatDuration(block.actualDurationHours || 0)}</span>
+                                <span className="tile-sub">Logged Effort</span>
+                            </div>
+                            <div className="metric-tile">
+                                <span className="tile-label">Total Estimated</span>
+                                <span className="tile-value">{formatDuration(block.estimatedDurationHours || 0)}</span>
+                                <span className="tile-sub">Workload Plan</span>
+                            </div>
+                            <div className="metric-tile">
+                                <span className="tile-label">Total Variance</span>
+                                <span className="tile-value" style={{ color: block.variance > 0 ? 'var(--red)' : 'var(--green)' }}>
+                                    {block.variance > 0 ? `+${formatDuration(block.variance)}` : `${formatDuration(Math.abs(block.variance))}`}
+                                </span>
+                                <span className="tile-sub">{block.variance > 0 ? 'Overrun' : 'Under budget'}</span>
                             </div>
                             <div className="metric-tile">
                                 <span className="tile-label">Efficiency</span>
@@ -439,15 +570,11 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
                                     </select>
                                 </div>
                                 <div className="form-field">
-                                    <label>Base Effort (Hrs)</label>
-                                    <input type="number" value={editData.baseHours} onChange={e => handleEditChange('baseHours', e.target.value)} />
-                                </div>
-                                <div className="form-field">
                                     <label>Estimated Hours {isEstimateOverridden && <span style={{fontSize: 9, color: 'var(--amber)'}}>(OVERRIDDEN)</span>}</label>
-                                    <input type="number" value={editData.estimatedHours} onChange={e => handleEditChange('estimatedHours', e.target.value)} />
+                                    <input type="number" value={editData.estimatedDurationHours} onChange={e => handleEditChange('estimatedDurationHours', e.target.value)} />
                                     {!isEstimateOverridden && (
                                         <div style={{fontSize: 9, color: 'var(--text-tertiary)', marginTop: 4}}>
-                                            Auto-calculated: {editData.baseHours}h × factor
+                                            Auto-calculated from {editData.type} & {editData.complexity}
                                         </div>
                                     )}
                                 </div>
@@ -520,6 +647,29 @@ const BlockDetailsDrawer = ({ block, allBlocks = [], onClose, onReview, onEscala
                                 disabled={!rejectionReason.trim()}
                                 onClick={() => { onReview?.(block._id, 'REJECT', rejectionReason); setRejectionActive(false); }}
                             >Confirm Rejection</button>
+                        </div>
+                    </div>
+                )}
+                {/* PROOF VIEWER MODAL */}
+                {proofViewer && (
+                    <div className="proof-viewer-overlay fade-in">
+                        <div className="proof-viewer-content">
+                            <div className="viewer-header">
+                                <div className="viewer-title-group">
+                                    <FileText size={18} />
+                                    <div>
+                                        <h3>{proofViewer.title}</h3>
+                                        <p>{proofViewer.fileName} • Uploaded {new Date(proofViewer.uploadedAt).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                                <button className="viewer-close" onClick={() => setProofViewer(null)}><X size={20} /></button>
+                            </div>
+                            <div className="viewer-body">
+                                <pre>{proofViewer.content}</pre>
+                            </div>
+                            <div className="viewer-footer">
+                                <button className="footer-btn primary" onClick={() => setProofViewer(null)}>Close Viewer</button>
+                            </div>
                         </div>
                     </div>
                 )}

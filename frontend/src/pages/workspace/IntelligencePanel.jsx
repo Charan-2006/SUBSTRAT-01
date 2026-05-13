@@ -107,36 +107,68 @@ const IntelligencePanel = ({ collapsed, requests = [], onApproveRequest, onRejec
                         <BarChart3 size={14} />
                         <span>Effort Telemetry</span>
                     </div>
-                    <div className="metrics-compact-grid">
-                        <div className="metric-box">
-                            <label>Remaining</label>
-                            <value className="amber">{formatDuration(kpis.totalRemainingEffort)}</value>
-                            <subLabel>To Complete</subLabel>
-                        </div>
-                        <div className="metric-box">
-                            <label>Actual Logged</label>
-                            <value className="accent">{formatDuration(kpis.totalActualHours)}</value>
-                            <subLabel>Real-time Dev</subLabel>
-                        </div>
-                        <div className="metric-box">
-                            <label>SLA Variance</label>
-                            <value className={kpis.totalVariance > 0 ? 'red' : 'green'}>
-                                {kpis.totalVariance > 0 ? `+${formatDuration(kpis.totalVariance)}` : '0.0h'}
-                            </value>
-                            <subLabel>Project Drift</subLabel>
-                        </div>
-                        <div className="metric-box">
-                            <label>Utilization</label>
-                            <value className={kpis.avgUtilization > 85 ? 'red' : 'green'}>{kpis.avgUtilization}%</value>
-                            <subLabel>Team Load</subLabel>
-                        </div>
-                    </div>
                     
-                    {kpis.overdueCount > 0 && (
-                        <div className="critical-alert-bar">
-                            <AlertTriangle size={12} />
-                            <span>{kpis.overdueCount} BLOCKS BREACHED SLA</span>
+                    {(!blocks || blocks.length === 0) ? (
+                        <div style={{ padding: 20, textAlign: 'center', opacity: 0.5, fontSize: 11 }}>
+                            Loading telemetry data...
                         </div>
+                    ) : (
+                        <>
+                            <div className="metrics-compact-grid">
+                                <div className="metric-box" title="Remaining Effort: Total estimated hours left across all unfinished blocks.">
+                                    <label>Remaining</label>
+                                    <value className="amber">{formatDuration(kpis.totalRemainingEffort)}</value>
+                                    <subLabel>To Complete</subLabel>
+                                </div>
+                                <div className="metric-box" title="Actual Logged: Total cumulative engineering hours across all blocks.">
+                                    <label>Actual Logged</label>
+                                    <value className="accent">{formatDuration(kpis.totalActualHours)}</value>
+                                    <subLabel>Real-time Dev</subLabel>
+                                </div>
+                                <div className="metric-box" title="SLA Variance: Difference between total actual effort and total estimated effort.">
+                                    <label>SLA Variance</label>
+                                    <value className={kpis.totalVariance <= 0 ? 'green' : kpis.totalVariance < 10 ? 'amber' : 'red'}>
+                                        {kpis.totalVariance > 0 ? `+${formatDuration(kpis.totalVariance)}` : formatDuration(kpis.totalVariance)}
+                                    </value>
+                                    <subLabel>Project Drift</subLabel>
+                                </div>
+                                <div className="metric-box" title="Team Utilization: Percentage of active engineers out of total available capacity.">
+                                    <label>Utilization</label>
+                                    <value className={kpis.avgUtilization > 80 ? 'red' : kpis.avgUtilization > 40 ? 'green' : 'amber'}>
+                                        {kpis.avgUtilization}%
+                                    </value>
+                                    <subLabel>Team Load</subLabel>
+                                </div>
+                            </div>
+                            
+                            {/* Dependency Pressure */}
+                            {kpis.dependencyPressureScore > 0 && (
+                                <div className="telemetry-subcard" title="Dependency-Aware Execution Pressure: Overall risk introduced by stalled downstream dependencies.">
+                                    <div className="flex-row">
+                                        <label>Dependency Pressure</label>
+                                        <value className="amber">{kpis.dependencyPressureScore} pts</value>
+                                    </div>
+                                    {kpis.highestPropagationRiskBlock && (
+                                        <div className="subtext">
+                                            Highest Risk: {kpis.highestPropagationRiskBlock.name}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* SLA Breach Detection */}
+                            {kpis.overdueCount > 0 && (
+                                <div className="critical-alert-bar pulse" title={`SLA Breach Detection: ${kpis.breachedPercentage}% of blocks have exceeded SLA.`}>
+                                    <AlertTriangle size={12} />
+                                    <span>{kpis.overdueCount} BLOCKS BREACHED SLA ({kpis.breachedPercentage}%)</span>
+                                </div>
+                            )}
+                            {kpis.highestDriftWorkflow && (
+                                <div className="subtext" style={{ padding: '0 12px 12px', fontSize: '9px', color: 'var(--red)', marginTop: '-8px' }}>
+                                    Highest Drift: {kpis.highestDriftWorkflow.name}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 

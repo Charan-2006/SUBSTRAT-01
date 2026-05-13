@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
+import toast from 'react-hot-toast';
 import { 
     Zap, Clock, AlertTriangle, CheckCircle2, Activity, Play, 
     FileText, MessageSquare, ArrowUpRight, ArrowDownRight, 
-    Layers, Users, ShieldAlert, ChevronRight, Info
+    Layers, Users, ShieldAlert, ChevronRight, Info, Upload, CheckSquare
 } from 'lucide-react';
 import { 
     calculateSLA, 
@@ -14,9 +15,13 @@ import {
     formatDuration
 } from '../../utils/workflowEngine';
 
+import { useOrchestration } from '../../context/OrchestrationContext';
+
 const EngMyWork = ({ myBlocks = [], active = [], critical = [], inReview = [], completed = [], overdue = [], ready = [], onSelectBlock, onUpdateStatus, onResumeWorkflow, onEscalate, blocks = [] }) => {
-    
+    const { uploadProof } = useOrchestration();
     const [isLoading, setIsLoading] = React.useState(null);
+    const [isUploading, setIsUploading] = React.useState(null); // blockId_stage
+    const [uploadSuccess, setUploadSuccess] = React.useState(null); // { id: blockId, message: '' }
     const WORKFLOW_ORDER = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
 
     const handleAdvance = async (e, block) => {
@@ -26,18 +31,62 @@ const EngMyWork = ({ myBlocks = [], active = [], critical = [], inReview = [], c
         const currentIndex = WORKFLOW_ORDER.indexOf(block.status);
         if (currentIndex === -1 || currentIndex >= WORKFLOW_ORDER.length - 2) return; // Cannot advance from REVIEW or COMPLETED
 
+        // Validation for Proof of Work
+        const needsProof = (block.status === 'DRC' && !block.drcProof?.content) || (block.status === 'LVS' && !block.lvsProof?.content);
+        if (needsProof) {
+            toast.error(`Please upload the ${block.status} verification report first.`);
+            return;
+        }
+
         const nextStatus = WORKFLOW_ORDER[currentIndex + 1];
         
         setIsLoading(block._id);
         try {
             await onUpdateStatus?.(block._id, nextStatus);
-            // Immediately show details after moving to next stage
-            onSelectBlock?.(block);
         } catch (err) {
             console.error("Advance stage error:", err);
         } finally {
             setIsLoading(null);
         }
+    };
+
+    const handleFileUpload = (e, blockId, stage) => {
+        e.stopPropagation();
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        setIsUploading(`${blockId}_${stage}`);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const content = event.target.result;
+            const proofData = {
+                fileName: file.name,
+                content: content,
+                uploadedAt: new Date()
+            };
+            
+            try {
+                if (stage === 'DRC') {
+                    await uploadProof?.(blockId, { drcProof: proofData });
+                } else if (stage === 'LVS') {
+                    await uploadProof?.(blockId, { lvsProof: proofData });
+                }
+                toast.success(`${stage} Report Uploaded Successfully!`);
+                setUploadSuccess({ id: blockId, message: `${stage} Report Uploaded Successfully!` });
+                setTimeout(() => setUploadSuccess(null), 4000);
+            } catch (err) {
+                console.error("Proof upload error:", err);
+                const msg = err.response?.data?.message || err.message || "Unknown error";
+                toast.error(`Failed to upload ${stage}: ${msg}`);
+            } finally {
+                setIsUploading(null);
+            }
+        };
+        reader.onerror = () => {
+            toast.error("Error reading file.");
+            setIsUploading(null);
+        };
+        reader.readAsText(file);
     };
 
     // --- Synchronization Logic ---
@@ -297,18 +346,48 @@ const EngMyWork = ({ myBlocks = [], active = [], critical = [], inReview = [], c
                                     >
                                         <MessageSquare size={12} /> Notes
                                     </button>
-                                    
+                                    {(b.status === 'DRC' || b.status === 'LVS') && (
+                                        <div style={{ marginRight: 12 }}>
+                                            {((b.status === 'DRC' && b.drcProof?.content) || (b.status === 'LVS' && b.lvsProof?.content)) ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#16a34a', fontSize: 10, fontWeight: 700 }}>
+                                                    <CheckCircle2 size={12} /> Proof Attached
+                                                </div>
+                                            ) : (
+                                                <label className={`ew-b ${isUploading === `${b._id}_${b.status}` ? 'loading' : ''}`} style={{ cursor: 'pointer', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px dashed #f59e0b' }}>
+                                                    {isUploading === `${b._id}_${b.status}` ? <Activity size={12} className="spin" /> : <Upload size={12} />} 
+                                                    {isUploading === `${b._id}_${b.status}` ? 'Uploading...' : `Upload ${b.status} .txt`}
+                                                    <input type="file" accept=".txt" onChange={(e) => handleFileUpload(e, b._id, b.status)} hidden disabled={isUploading} />
+                                                </label>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {b.escalated && <span className="ew-t t-red" style={{ marginRight: 8 }}>Escalated</span>}
 
                                     <button 
-                                        className={`ew-b b-pri ${isCurrentlyExecuting ? 'loading' : ''}`} 
+                                        className={`ew-b b-pri ${isCurrentlyExecuting ? 'loading' : ''} ${((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content)) ? 'blocked-action' : ''}`} 
                                         onClick={(e) => handleAdvance(e, b)}
-                                        disabled={isCurrentlyExecuting || execState === 'BLOCKED' || b.status === 'REVIEW'}
+                                        disabled={isCurrentlyExecuting || execState === 'BLOCKED' || b.status === 'REVIEW' || ((b.status === 'DRC' && !b.drcProof?.content) || (b.status === 'LVS' && !b.lvsProof?.content))}
                                     >
                                         {isCurrentlyExecuting ? <Activity size={12} className="spin" /> : <Play size={12} />}
                                         Move to Next Stage
                                     </button>
                                 </div>
+                                {uploadSuccess?.id === b._id && (
+                                    <div style={{ 
+                                        padding: '8px 18px', 
+                                        background: '#16a34a', 
+                                        color: 'white', 
+                                        fontSize: 11, 
+                                        fontWeight: 700, 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: 8,
+                                        animation: 'slideUp 0.3s ease'
+                                    }}>
+                                        <CheckCircle2 size={12} /> {uploadSuccess.message}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

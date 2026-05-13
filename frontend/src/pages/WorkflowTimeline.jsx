@@ -211,16 +211,7 @@ const WorkflowTimeline = ({ blocks = [], onUpdateStatus }) => {
                         </div>
                     </div>
 
-                    <div className="sidebar-section" style={{ marginTop: 24 }}>
-                        <div className="sidebar-section-title">Actions</div>
-                        <button 
-                            className="btn btn-primary" 
-                            style={{ width: '100%', marginTop: 12, justifyContent: 'center' }}
-                            onClick={() => onUpdateStatus && onUpdateStatus(block._id, stages[currentIdx + 1] || block.status)}
-                        >
-                            Move to Next Stage <ArrowRight size={16} style={{ marginLeft: 8 }} />
-                        </button>
-                    </div>
+
                 </div>
             </div>
         );

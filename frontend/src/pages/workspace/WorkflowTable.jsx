@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronRight, Link2, AlertTriangle, UserPlus, CheckCircle, XCircle, Search, ArrowRight, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Link2, AlertTriangle, UserPlus, CheckCircle, XCircle, Search, ArrowRight, Trash2, Shield, CheckSquare } from 'lucide-react';
 import { STAGES, STAGE_COLORS, HEALTH_STATES } from '../../constants/workflowStates';
 import { 
     calculateHealth, calculateDependencyImpact, calculateSLA, calculateProgress,
@@ -78,9 +78,10 @@ const AssignPopover = ({ block, engineers, allBlocks, onAssign, onClose }) => {
 
 const HEALTH_STYLES = {
     [HEALTH_STATES.HEALTHY]: { dot: 'var(--green)', label: 'Healthy', class: '' },
-    [HEALTH_STATES.WARNING]: { dot: 'var(--amber)', label: 'Warning', class: 'health-warning' },
+    [HEALTH_STATES.WARNING]: { dot: 'var(--amber)', label: 'Bottleneck', class: 'health-bottleneck' },
     [HEALTH_STATES.CRITICAL]: { dot: 'var(--red)', label: 'Critical', class: 'health-critical' },
     [HEALTH_STATES.BOTTLENECK]: { dot: 'var(--red)', label: 'Bottleneck', class: 'health-bottleneck' },
+    [HEALTH_STATES.BLOCKED]: { dot: 'var(--amber)', label: 'Blocked', class: 'health-warning' },
 };
 
 // --- Expanded Preview ---
@@ -276,6 +277,11 @@ const WorkflowTable = ({
                                                             BOTTLENECK
                                                         </span>
                                                     )}
+                                                    {!block.assignedEngineer && (
+                                                        <span className="priority-badge" style={{ background: 'rgba(255, 149, 0, 0.1)', color: 'var(--amber)', border: '1px solid rgba(255, 149, 0, 0.2)' }}>
+                                                            UNASSIGNED
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
@@ -329,17 +335,26 @@ const WorkflowTable = ({
                                         </td>
 
                                         <td>
-                                            <span style={{ fontSize: 11, fontWeight: 600, color: block.assignedEngineer ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
-                                                {block.assignedEngineer?.displayName || 'Unassigned'}
-                                            </span>
+                                            {block.assignedEngineer ? (
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    {block.assignedEngineer.displayName}
+                                                </span>
+                                            ) : (
+                                                <span style={{ 
+                                                    fontSize: 9.5, fontWeight: 800, padding: '3px 6px', borderRadius: 4, 
+                                                    background: 'rgba(255, 149, 0, 0.1)', color: 'var(--amber)', border: '1px solid rgba(255, 149, 0, 0.2)' 
+                                                }}>
+                                                    UNASSIGNED
+                                                </span>
+                                            )}
                                         </td>
 
                                         <td>
-                                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>{block.estimatedHours || 0}h</div>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>{block.estimatedDurationHours || 0}h</div>
                                         </td>
 
                                         <td>
-                                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>{(block.totalTimeSpent || 0).toFixed(1)}h</div>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>{(block.actualDurationHours || 0).toFixed(1)}h</div>
                                         </td>
 
                                         <td>
@@ -372,14 +387,16 @@ const WorkflowTable = ({
                                                 )}
 
                                                 {block.status === STAGES.REVIEW && (
-                                                    <>
+                                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginRight: 4 }}>
+                                                        {block.drcProof?.content && <Shield size={10} color="var(--amber)" title="DRC Proof Attached" />}
+                                                        {block.lvsProof?.content && <CheckSquare size={10} color="var(--green)" title="LVS Proof Attached" />}
                                                         <button className="btn btn-sm btn-primary" style={{ padding: '4px 6px' }} onClick={(e) => { e.stopPropagation(); onReview?.(block._id, 'APPROVE'); }} title="Approve">
                                                             <CheckCircle size={12} />
                                                         </button>
                                                         <button className="btn btn-sm" style={{ padding: '4px 6px', color: 'var(--red)' }} onClick={(e) => { e.stopPropagation(); onOpenDrawer?.(block, true); }} title="Reject">
                                                             <XCircle size={12} />
                                                         </button>
-                                                    </>
+                                                    </div>
                                                 )}
                                                 
                                                 <button className="btn btn-sm" style={{ padding: '4px 8px', fontSize: 10 }} onClick={() => onOpenDrawer?.(block)}>

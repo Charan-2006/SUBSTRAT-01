@@ -200,7 +200,10 @@ const ManagerDashboard = ({
                     )}
 
                     {activeTab === 'knowledgeBase' && (
-                        <KnowledgeBase blocks={displayBlocks} engineers={displayEngineers} />
+                        <KnowledgeBase 
+                            blocks={displayBlocks} 
+                            engineers={displayEngineers} 
+                        />
                     )}
 
                     {activeTab === 'auditTrail' && (

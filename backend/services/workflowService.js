@@ -61,14 +61,14 @@ exports.calculateHealth = (block) => {
         status = 'CRITICAL';
         reasons.push(`Severe stage stagnation (>50% overrun)`);
     }
-    // Rule: 1-2 rejections is WARNING
+    // Rule: 1-2 rejections is CRITICAL
     else if (rejections >= 1) {
-        status = 'WARNING';
+        status = 'CRITICAL';
         reasons.push(`${rejections} rejections (Elevated Pressure)`);
     }
-    // Rule: 25%+ SLA overrun is WARNING
+    // Rule: 25%+ SLA overrun is CRITICAL
     else if (overrunRatio >= 0.25) {
-        status = 'WARNING';
+        status = 'CRITICAL';
         reasons.push(`Stage stagnation (>25% overrun)`);
     }
 
@@ -82,7 +82,7 @@ exports.calculateHealth = (block) => {
 
     // SIGNAL 6: Physical Complexity (Normalized Area Impact)
     const areaFactor = Math.sqrt(block.estimatedArea || 0) * 0.5; // Normalized gradual impact
-    if (areaFactor > 15) status = 'WARNING'; // Large blocks are inherently risky
+    if (areaFactor > 15) status = 'CRITICAL'; // Large blocks are inherently risky
 
     // Telemetry and Scoring
     const totalScore = Math.max(0, 100 - (rejections * 25) - (overrunRatio * 50) - (isEscalated ? 40 : 0) - (areaFactor));
@@ -232,9 +232,9 @@ exports.propagateWorkflowChanges = async (sourceBlock, allBlocks) => {
 
 /**
  * CORE EFFORT ESTIMATION ENGINE
- * Formula: estimated_hours = (base_hours * complexity_factor) + (estimated_area * area_weight)
+ * Formula: estimated_hours = (base_hours_from_type * complexity_factor) + (estimated_area * area_weight)
  */
-exports.calculateEstimation = (baseHours, complexity, estimatedArea = 0) => {
+exports.calculateEstimation = (type, complexity, estimatedArea = 0) => {
     const factors = {
         'SIMPLE': 1.0,
         'MEDIUM': 1.5,
@@ -242,14 +242,26 @@ exports.calculateEstimation = (baseHours, complexity, estimatedArea = 0) => {
         'CRITICAL': 4.0
     };
     
-    const factor = factors[complexity] || 1.0;
-    const areaWeight = 0.2; // Moderate configurable weight
+    // Base hours inferred from component type if explicit baseHours not provided
+    const baseHoursMap = {
+        'Mixed Signal': 12,
+        'Digital': 8,
+        'RF / PLL': 16,
+        'Power Management': 14,
+        'Memory': 20,
+        'Clocking': 10
+    };
     
-    const baseEffort = (baseHours || 0) * factor;
+    const factor = factors[complexity] || 1.0;
+    const baseHours = baseHoursMap[type] || 10; // Default to 10 if type unknown
+    const areaWeight = 0.2; 
+    
+    const baseEffort = baseHours * factor;
     const areaEffort = (estimatedArea || 0) * areaWeight;
     
-    return Math.round(baseEffort + areaEffort);
+    return Math.max(1, Math.round(baseEffort + areaEffort)); // NEVER allow 0h
 };
 
 exports.WORKFLOW_ORDER = WORKFLOW_ORDER;
+exports.STAGE_SLA_THRESHOLDS = STAGE_SLA_THRESHOLDS;
 

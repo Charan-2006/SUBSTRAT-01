@@ -15,7 +15,8 @@ const {
     resumeWorkflow,
     updateBlock,
     deleteBlock,
-    releaseBlock
+    releaseBlock,
+    uploadProof
 } = require('../controllers/blockController');
 
 const { protect } = require('../middleware/auth');
@@ -83,6 +84,10 @@ router.put('/:id/status', authorize('Engineer'), updateStatus);
 // @route   POST /api/blocks/:id/resume
 // @desc    Resume workflow execution (Engineer only)
 router.post('/:id/resume', authorize('Engineer'), resumeWorkflow);
+
+// @route   PUT /api/blocks/:id/proof
+// @desc    Upload verification proof (Engineer only)
+router.put('/:id/proof', authorize('Engineer'), uploadProof);
 
 // @route   PUT /api/blocks/:id/review
 // @desc    Approve or reject a block (Manager only)

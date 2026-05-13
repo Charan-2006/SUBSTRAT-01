@@ -132,10 +132,10 @@ const WorkspaceTab = ({
 
         // 7. DETERMINISTIC SORTING
         result.sort((a, b) => {
-            // First: Escalation & Bottleneck priority
-            const prioA = (a.priority === 'CRITICAL' ? 3 : a.priority === 'HIGH' ? 2 : 1) + (a.isBottleneck ? 10 : 0);
-            const prioB = (b.priority === 'CRITICAL' ? 3 : b.priority === 'HIGH' ? 2 : 1) + (b.isBottleneck ? 10 : 0);
-            if (prioB !== prioA) return prioB - prioA;
+            // First: Engine Priority Score
+            if ((b.priorityScore || 0) !== (a.priorityScore || 0)) {
+                return (b.priorityScore || 0) - (a.priorityScore || 0);
+            }
 
             // Second: User selected sort
             let valA = a[sortField], valB = b[sortField];
@@ -147,8 +147,8 @@ const WorkspaceTab = ({
                 const o = { 'BOTTLENECK': 0, 'CRITICAL': 1, 'HEALTHY': 2 }; 
                 valA = o[a.health] ?? 3; 
                 valB = o[b.health] ?? 3; 
-            } else if (sortField === 'estimatedHours') { 
-                valA = a.estimatedHours || 0; valB = b.estimatedHours || 0; 
+            } else if (sortField === 'estimatedDurationHours') { 
+                valA = a.estimatedDurationHours || 0; valB = b.estimatedDurationHours || 0; 
             }
 
             if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -171,14 +171,13 @@ const WorkspaceTab = ({
         e.preventDefault();
         onCreateBlock({ 
             ...formData, 
-            baseHours: Number(formData.baseHours),
-            estimatedHours: calculateEstimation(Number(formData.baseHours), formData.complexity),
+            estimatedDurationHours: calculateEstimation(formData.type, formData.complexity, Number(formData.estimatedArea)),
             estimatedArea: Number(formData.estimatedArea),
             priority: Number(formData.priority)
         });
         setFormData({ 
             name: '', type: BLOCK_TYPES[0], description: '', techNode: TECH_NODES[TECH_NODES.length - 1], 
-            complexity: 'SIMPLE', baseHours: 0, estimatedArea: 0, priority: 1, dependencies: [], assignedEngineer: '' 
+            complexity: 'SIMPLE', estimatedArea: 0, priority: 1, dependencies: [], assignedEngineer: '' 
         });
         setShowForm(false);
     }, [formData, onCreateBlock, setShowForm]);
@@ -267,11 +266,11 @@ const WorkspaceTab = ({
                                     </select>
                                 </div>
                                 <div>
-                                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Base Effort (Hrs) *</label>
-                                    <input type="number" className="form-control" style={{ fontSize: 12.5, padding: '7px 10px' }} required placeholder="0" value={formData.baseHours} onChange={e => setFormData({ ...formData, baseHours: e.target.value })} />
-                                    <div style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                                        Estimate: <strong>{calculateEstimation(Number(formData.baseHours), formData.complexity, Number(formData.estimatedArea))}h</strong>
+                                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Estimated Effort</label>
+                                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)', padding: '7px 0' }}>
+                                        {calculateEstimation(formData.type, formData.complexity, Number(formData.estimatedArea))}h
                                     </div>
+                                    <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>Auto-calculated from Type & Complexity</div>
                                 </div>
                                 <div>
                                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Estimated Area (µm²)</label>

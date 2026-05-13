@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Plus, FileText, ChevronRight, ChevronLeft, Save, Trash2, BookOpen, Shield, AlertTriangle, CheckCircle2, Link2, Activity, Zap, Clock, User, ArrowRight, ExternalLink } from 'lucide-react';
 import './KnowledgeBase.css';
+import VerificationReportModal from '../components/VerificationReportModal';
 
 // --- KNOWLEDGE ENGINE (RE-BUILT) ---
 function deriveKnowledge(blocks, engineers) {
@@ -146,6 +147,10 @@ const KnowledgeBase = ({ blocks=[], engineers=[] }) => {
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
     const [expandedDocs, setExpandedDocs] = useState({});
+    
+    // Modal State
+    const [reportDoc, setReportDoc] = useState(null);
+    const [showReport, setShowReport] = useState(false);
 
     const allDocs = useMemo(() => deriveKnowledge(blocks, engineers), [blocks, engineers]);
 
@@ -170,6 +175,14 @@ const KnowledgeBase = ({ blocks=[], engineers=[] }) => {
 
     const toggleExpand = (id) => {
         setExpandedDocs(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+
+
+    const handleViewReport = (e, doc) => {
+        e.stopPropagation();
+        setReportDoc(doc);
+        setShowReport(true);
     };
 
     const grouped = useMemo(() => {
@@ -274,7 +287,7 @@ const KnowledgeBase = ({ blocks=[], engineers=[] }) => {
                                                         
                                                         {doc.comments && (
                                                             <div className="kb-content-section">
-                                                                <div className="kb-section-label">Manager Comments</div>
+                                                                 <div className="kb-section-label">Manager Comments</div>
                                                                 <div className="kb-comment-bubble">{doc.comments}</div>
                                                             </div>
                                                         )}
@@ -291,10 +304,7 @@ const KnowledgeBase = ({ blocks=[], engineers=[] }) => {
                                                         </div>
                                                         
                                                         <div className="kb-action-bar">
-                                                            <button className="kb-action-link" onClick={(e) => e.stopPropagation()}>
-                                                                <ExternalLink size={12} /> View Workflow
-                                                            </button>
-                                                            <button className="kb-action-link" onClick={(e) => e.stopPropagation()}>
+                                                            <button className="kb-action-link" onClick={(e) => handleViewReport(e, doc)}>
                                                                 <FileText size={12} /> Full Report
                                                             </button>
                                                         </div>
@@ -360,6 +370,13 @@ const KnowledgeBase = ({ blocks=[], engineers=[] }) => {
                     </div>
                 </div>
             </div>
+
+            <VerificationReportModal 
+                isOpen={showReport} 
+                onClose={() => setShowReport(false)} 
+                doc={reportDoc} 
+                blocks={blocks} 
+            />
         </div>
     );
 };

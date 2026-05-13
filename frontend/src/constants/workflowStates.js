@@ -63,7 +63,7 @@ export const HEALTH_STATES = {
 
 export const HEALTH_LABELS = {
     HEALTHY: 'Healthy',
-    WARNING: 'Warning',
+    WARNING: 'Bottleneck',
     CRITICAL: 'Critical',
     BOTTLENECK: 'Bottleneck',
     BLOCKED: 'Blocked',

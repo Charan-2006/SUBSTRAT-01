@@ -69,8 +69,8 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
                 downstream: block.status === 'COMPLETED' ? [] : (block.downstream || []).map(id => blocks.find(b => b._id === id)).filter(Boolean).filter(d => d.status !== 'COMPLETED'),
                 
                 // Effort Tracking
-                remainingEffort: Math.max(0, (block.estimatedHours || 0) - (block.totalTimeSpent || 0)),
-                variance: (block.totalTimeSpent || 0) - (block.estimatedHours || 0),
+                remainingEffort: Math.max(0, (block.estimatedDurationHours || 0) - (block.actualDurationHours || 0)),
+                variance: (block.actualDurationHours || 0) - (block.estimatedDurationHours || 0),
 
                 activityLog: activityLog.filter(log => log.blockId === (block._id || block.id))
             };
@@ -119,8 +119,12 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
 
     const updateBlockStatus = useCallback(async (blockId, newStatus) => {
         try {
-            await api.put(`/blocks/${blockId}/status`, { status: newStatus });
+            const res = await api.put(`/blocks/${blockId}/status`, { status: newStatus });
+            const updatedBlock = res.data.data;
             logActivity('status_updated', blockId, { status: newStatus });
+            
+            setBlocks(prev => prev.map(b => b._id === blockId ? updatedBlock : b));
+            await fetchBlocks();
         } catch (err) {
             console.error("Context Status update error:", err);
             throw err;
@@ -210,10 +214,32 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
             const res = await api.put(`/blocks/${blockId}`, formData);
             const updatedBlock = res.data.data;
             logActivity('metadata_updated', blockId, { changes: Object.keys(formData) });
+            
+            // Optimistic update for immediate UI response
+            setBlocks(prev => prev.map(b => b._id === blockId ? updatedBlock : b));
+            
             await fetchBlocks();
             return updatedBlock;
         } catch (err) {
             console.error("Context updateBlock error:", err);
+            throw err;
+        }
+    }, [fetchBlocks, logActivity]);
+    
+    const uploadProof = useCallback(async (blockId, proofData) => {
+        if (!blockId) {
+            console.error("uploadProof: No blockId provided");
+            return;
+        }
+        try {
+            const res = await api.put(`/blocks/${blockId}/proof`, proofData);
+            const updatedBlock = res.data.data;
+            logActivity('proof_uploaded', blockId, { stage: proofData.drcProof ? 'DRC' : 'LVS' });
+            setBlocks(prev => prev.map(b => b._id === blockId ? updatedBlock : b));
+            await fetchBlocks();
+            return updatedBlock;
+        } catch (err) {
+            console.error("Context uploadProof error:", err.response?.data || err.message);
             throw err;
         }
     }, [fetchBlocks, logActivity]);
@@ -260,6 +286,7 @@ export const OrchestrationProvider = ({ children, initialBlocks = [], initialEng
         createBlock,
         reviewBlock,
         onUpdateBlock,
+        uploadProof,
         deleteBlock,
         releaseBlock
     };

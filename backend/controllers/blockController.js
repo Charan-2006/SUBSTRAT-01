@@ -81,7 +81,8 @@ exports.updateBlock = async (req, res, next) => {
         // Update fields
         const fieldsToUpdate = [
             'name', 'type', 'description', 'techNode', 'complexity', 
-            'baseHours', 'estimatedArea', 'priority', 'dependencies', 'assignedEngineer'
+            'estimatedDurationHours', 'estimatedArea', 'priority', 'dependencies', 'assignedEngineer',
+            'drcProof', 'lvsProof'
         ];
 
         fieldsToUpdate.forEach(field => {
@@ -272,7 +273,7 @@ exports.updateStatus = async (req, res, next) => {
         });
 
         // Update total time
-        block.totalTimeSpent = (block.totalTimeSpent || 0) + stageDurationHours;
+        block.actualDurationHours = (block.actualDurationHours || 0) + stageDurationHours;
 
         // Start next stage
         block.status = status;
@@ -336,7 +337,7 @@ exports.reviewBlock = async (req, res, next) => {
             endTime: now,
             durationHours: stageDurationHours
         });
-        block.totalTimeSpent = (block.totalTimeSpent || 0) + stageDurationHours;
+        block.actualDurationHours = (block.actualDurationHours || 0) + stageDurationHours;
 
         if (action === 'APPROVE') {
             block.status = 'COMPLETED';
@@ -711,8 +712,8 @@ exports.loadDemoData = async (req, res, next) => {
             complexity: 'MEDIUM', priority: 7, status: 'COMPLETED',
             healthStatus: 'HEALTHY', createdBy: creatorId,
             assignedEngineer: eng('Layout_Engineer_1'),
-            expectedDurationHours: 12, actualDurationHours: 10.5,
-            totalTimeSpent: 10.5, rejectionCount: 0, progress: 100,
+            estimatedDurationHours: 12, actualDurationHours: 12,
+            rejectionCount: 0, progress: 100,
             executionState: 'COMPLETE', confidenceScore: 100, stabilityScore: 100,
             pressureScore: 0, propagationRisk: 0.3,
             stageStartTime: new Date(now.getTime() - 2 * H),
@@ -726,10 +727,10 @@ exports.loadDemoData = async (req, res, next) => {
         blocks.b2 = await new Block({
             name: 'PMIC_Controller', type: 'Power Management', techNode: '7nm',
             complexity: 'COMPLEX', priority: 9, status: 'REVIEW',
-            healthStatus: 'WARNING', createdBy: creatorId,
+            healthStatus: 'BOTTLENECK', createdBy: creatorId,
             assignedEngineer: eng('Verification_Engineer_1'),
-            expectedDurationHours: 18, actualDurationHours: 22,
-            totalTimeSpent: 22, rejectionCount: 1, progress: 100,
+            estimatedDurationHours: 24, actualDurationHours: 58,
+            rejectionCount: 1, progress: 100,
             executionState: 'IN_REVIEW', confidenceScore: 72, stabilityScore: 65,
             pressureScore: 58, propagationRisk: 0.45,
             rejectionReason: 'LVS netlist mismatch on power rail routing',
@@ -751,8 +752,8 @@ exports.loadDemoData = async (req, res, next) => {
             complexity: 'CRITICAL', priority: 10, status: 'DRC',
             healthStatus: 'CRITICAL', createdBy: creatorId,
             assignedEngineer: eng('Layout_Engineer_2'),
-            expectedDurationHours: 26, actualDurationHours: 34,
-            totalTimeSpent: 34, rejectionCount: 2, progress: 55,
+            estimatedDurationHours: 28, actualDurationHours: 28,
+            rejectionCount: 2, progress: 55,
             executionState: 'IN_PROGRESS', confidenceScore: 48, stabilityScore: 40,
             pressureScore: 82, propagationRisk: 0.65,
             escalated: true, escalationState: 'ESCALATED', lastEscalatedAt: new Date(now.getTime() - 4 * H),
@@ -775,8 +776,8 @@ exports.loadDemoData = async (req, res, next) => {
             complexity: 'MEDIUM', priority: 6, status: 'IN_PROGRESS',
             healthStatus: 'HEALTHY', createdBy: creatorId,
             assignedEngineer: eng('Layout_Engineer_1'),
-            expectedDurationHours: 14, actualDurationHours: 8,
-            totalTimeSpent: 8, rejectionCount: 0, progress: 45,
+            estimatedDurationHours: 14, actualDurationHours: 22,
+            rejectionCount: 0, progress: 45,
             executionState: 'IN_PROGRESS', confidenceScore: 95, stabilityScore: 92,
             pressureScore: 15, propagationRisk: 0.2,
             stageStartTime: new Date(now.getTime() - 8 * H),
@@ -789,8 +790,8 @@ exports.loadDemoData = async (req, res, next) => {
             complexity: 'CRITICAL', priority: 10, status: 'NOT_STARTED',
             healthStatus: 'CRITICAL', createdBy: creatorId,
             assignedEngineer: eng('Layout_Engineer_3'),
-            expectedDurationHours: 38, actualDurationHours: 0,
-            totalTimeSpent: 0, rejectionCount: 1, progress: 0,
+            estimatedDurationHours: 38, actualDurationHours: 66,
+            rejectionCount: 1, progress: 0,
             executionState: 'BLOCKED', confidenceScore: 55, stabilityScore: 50,
             pressureScore: 75, propagationRisk: 0.7,
             escalated: true, escalationState: 'ESCALATED', lastEscalatedAt: new Date(now.getTime() - 2 * H),
@@ -801,10 +802,10 @@ exports.loadDemoData = async (req, res, next) => {
         blocks.b6 = await new Block({
             name: 'PLL_Core_Unit', type: 'RF / PLL', techNode: '5nm',
             complexity: 'CRITICAL', priority: 9, status: 'LVS',
-            healthStatus: 'WARNING', createdBy: creatorId,
+            healthStatus: 'BOTTLENECK', createdBy: creatorId,
             assignedEngineer: eng('Verification_Engineer_2'),
-            expectedDurationHours: 30, actualDurationHours: 28,
-            totalTimeSpent: 28, rejectionCount: 1, progress: 78,
+            estimatedDurationHours: 30, actualDurationHours: 52,
+            rejectionCount: 1, progress: 78,
             executionState: 'IN_PROGRESS', confidenceScore: 68, stabilityScore: 62,
             pressureScore: 52, propagationRisk: 0.4,
             rejectionReason: 'VCO tuning range mismatch in LVS extraction',
@@ -822,8 +823,8 @@ exports.loadDemoData = async (req, res, next) => {
             complexity: 'SIMPLE', priority: 4, status: 'COMPLETED',
             healthStatus: 'HEALTHY', createdBy: creatorId,
             assignedEngineer: eng('Layout_Engineer_2'),
-            expectedDurationHours: 8, actualDurationHours: 6.5,
-            totalTimeSpent: 6.5, rejectionCount: 0, progress: 100,
+            estimatedDurationHours: 8, actualDurationHours: 23,
+            rejectionCount: 0, progress: 100,
             executionState: 'COMPLETE', confidenceScore: 100, stabilityScore: 100,
             pressureScore: 0, propagationRisk: 0.15,
             stageStartTime: new Date(now.getTime() - 1 * H),
@@ -837,10 +838,10 @@ exports.loadDemoData = async (req, res, next) => {
         blocks.b8 = await new Block({
             name: 'Thermal_Sensor_Interface', type: 'Sensor', techNode: '6nm',
             complexity: 'MEDIUM', priority: 6, status: 'REVIEW',
-            healthStatus: 'WARNING', createdBy: creatorId,
+            healthStatus: 'CRITICAL', createdBy: creatorId,
             assignedEngineer: eng('Senior_Reviewer_1'),
-            expectedDurationHours: 11, actualDurationHours: 15,
-            totalTimeSpent: 15, rejectionCount: 1, progress: 100,
+            estimatedDurationHours: 11, actualDurationHours: 20,
+            rejectionCount: 1, progress: 100,
             executionState: 'IN_REVIEW', confidenceScore: 70, stabilityScore: 68,
             pressureScore: 45, propagationRisk: 0.25,
             rejectionReason: 'Thermal diode placement violates guard ring rules',
@@ -858,9 +859,9 @@ exports.loadDemoData = async (req, res, next) => {
             name: 'Power_Gating_Controller', type: 'Power', techNode: '5nm',
             complexity: 'COMPLEX', priority: 9, status: 'NOT_STARTED',
             healthStatus: 'CRITICAL', createdBy: creatorId,
-            assignedEngineer: null,
-            expectedDurationHours: 24, actualDurationHours: 0,
-            totalTimeSpent: 0, rejectionCount: 0, progress: 0,
+            assignedEngineer: eng('Layout_Engineer_3'),
+            estimatedDurationHours: 24, actualDurationHours: 24,
+            rejectionCount: 0, progress: 0,
             executionState: 'BLOCKED', confidenceScore: 60, stabilityScore: 55,
             pressureScore: 70, propagationRisk: 0.8,
         }).save();
@@ -871,12 +872,68 @@ exports.loadDemoData = async (req, res, next) => {
             complexity: 'MEDIUM', priority: 7, status: 'IN_PROGRESS',
             healthStatus: 'HEALTHY', createdBy: creatorId,
             assignedEngineer: eng('Layout_Engineer_3'),
-            expectedDurationHours: 16, actualDurationHours: 9,
-            totalTimeSpent: 9, rejectionCount: 0, progress: 40,
+            estimatedDurationHours: 16, actualDurationHours: 16,
+            rejectionCount: 0, progress: 40,
             executionState: 'IN_PROGRESS', confidenceScore: 90, stabilityScore: 88,
             pressureScore: 20, propagationRisk: 0.1,
             stageStartTime: new Date(now.getTime() - 9 * H),
             stageHistory: stages([['NOT_STARTED', 12, 14], ['IN_PROGRESS', 10, 12]]),
+        }).save();
+
+        // ── 11. Power_Management_Unit ────────────────────────────
+        blocks.b11 = await new Block({
+            name: 'Power_Management_Unit', type: 'Power', techNode: '5nm',
+            complexity: 'MEDIUM', priority: 8, status: 'DRC',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            assignedEngineer: eng('Layout_Engineer_1'),
+            estimatedDurationHours: 14, actualDurationHours: 24.5,
+            rejectionCount: 0, progress: 20,
+            executionState: 'IN_PROGRESS', confidenceScore: 85, stabilityScore: 82,
+            pressureScore: 30, propagationRisk: 0.15,
+            stageStartTime: new Date(now.getTime() - 2 * H),
+        }).save();
+
+        // ── 12. Thermal_Control_Logic ────────────────────────────
+        blocks.b12 = await new Block({
+            name: 'Thermal_Control_Logic', type: 'Digital', techNode: '6nm',
+            complexity: 'SIMPLE', priority: 5, status: 'NOT_STARTED',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            estimatedDurationHours: 6, actualDurationHours: 12.5,
+            rejectionCount: 0, progress: 0,
+            executionState: 'NOT_STARTED', confidenceScore: 100, stabilityScore: 100,
+            pressureScore: 0, propagationRisk: 0.05,
+        }).save();
+
+        // ── 13. GPIO_Pad_Array ───────────────────────────────────
+        blocks.b13 = await new Block({
+            name: 'GPIO_Pad_Array', type: 'IO', techNode: '7nm',
+            complexity: 'SIMPLE', priority: 3, status: 'NOT_STARTED',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            estimatedDurationHours: 10, actualDurationHours: 10,
+        }).save();
+
+        // ── 14. SerDes_Transceiver ───────────────────────────────
+        blocks.b14 = await new Block({
+            name: 'SerDes_Transceiver', type: 'Analog Core', techNode: '5nm',
+            complexity: 'CRITICAL', priority: 10, status: 'NOT_STARTED',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            estimatedDurationHours: 45, actualDurationHours: 45,
+        }).save();
+
+        // ── 15. Voltage_Regulator ────────────────────────────────
+        blocks.b15 = await new Block({
+            name: 'Voltage_Regulator', type: 'Power Management', techNode: '7nm',
+            complexity: 'MEDIUM', priority: 7, status: 'NOT_STARTED',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            estimatedDurationHours: 18, actualDurationHours: 18,
+        }).save();
+
+        // ── 16. Logic_Standard_Cells ─────────────────────────────
+        blocks.b16 = await new Block({
+            name: 'Logic_Standard_Cells', type: 'Digital', techNode: '6nm',
+            complexity: 'SIMPLE', priority: 4, status: 'NOT_STARTED',
+            healthStatus: 'HEALTHY', createdBy: creatorId,
+            estimatedDurationHours: 40, actualDurationHours: 40,
         }).save();
 
         // ── Wire Dependencies ────────────────────────────────────
@@ -1017,6 +1074,41 @@ exports.releaseBlock = async (req, res, next) => {
 
         res.status(200).json({ success: true, data: block });
     } catch (error) {
+        next(error);
+    }
+};
+// @desc    Upload proof for DRC or LVS
+// @route   PUT /api/blocks/:id/proof
+// @access  Private (Engineer only)
+exports.uploadProof = async (req, res, next) => {
+    try {
+        const { drcProof, lvsProof } = req.body;
+        const updateData = {};
+        
+        if (drcProof) updateData.drcProof = drcProof;
+        if (lvsProof) updateData.lvsProof = lvsProof;
+
+        const block = await Block.findByIdAndUpdate(
+            req.params.id,
+            { $set: updateData },
+            { new: true, runValidators: false }
+        );
+
+        if (!block) {
+            return res.status(404).json({ success: false, message: 'Block not found' });
+        }
+
+        await logAction({
+            userId: req.user.id,
+            userRole: req.user.role,
+            action: 'UPDATE',
+            blockId: block._id,
+            message: `Proof of work uploaded for ${drcProof ? 'DRC' : 'LVS'} by engineer ${req.user.displayName || 'unknown'}.`
+        });
+
+        res.status(200).json({ success: true, data: block });
+    } catch (error) {
+        console.error("uploadProof Controller Error:", error);
         next(error);
     }
 };

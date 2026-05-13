@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 import BlockDocsPanel from './BlockDocsPanel';
 import { useOrchestration } from '../context/OrchestrationContext';
 import { calculateSLA, formatDuration } from '../utils/workflowEngine';
-import { AlertTriangle, Clock, Activity, ShieldAlert, CheckCircle2, User, ChevronRight, Layers } from 'lucide-react';
+import { 
+    AlertTriangle, Clock, Activity, ShieldAlert, CheckCircle2, 
+    User, ChevronRight, Layers, Upload, Play, Eye, FileText
+} from 'lucide-react';
 import './TimelinePanel.css';
 
 const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview, onResumeWorkflow, onEscalate, isManager, user }) => {
@@ -24,6 +28,49 @@ const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview,
     const [actionLoading, setActionLoading] = useState(false);
 
     const canManage = isManager || (block?.assignedEngineer?._id === user?._id || block?.assignedEngineer === user?._id);
+
+    const [uploadSuccess, setUploadSuccess] = useState(null);
+    const [isUploading, setIsUploading] = useState(null); // stage
+    const { uploadProof } = useOrchestration();
+
+    const handleFileUpload = (e, stage) => {
+        e.stopPropagation();
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        setIsUploading(stage);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const content = event.target.result;
+            const proofData = {
+                fileName: file.name,
+                content: content,
+                uploadedAt: new Date()
+            };
+            
+            try {
+                if (stage === 'DRC') {
+                    await uploadProof?.(block._id, { drcProof: proofData });
+                } else if (stage === 'LVS') {
+                    await uploadProof?.(block._id, { lvsProof: proofData });
+                }
+                toast.success(`${stage} Report Uploaded Successfully!`);
+                setUploadSuccess(`${stage} Report Uploaded Successfully!`);
+                setTimeout(() => setUploadSuccess(null), 3000);
+            } catch (err) {
+                console.error("Proof upload error:", err);
+                const msg = err.response?.data?.message || err.message || "Unknown error";
+                toast.error(`Upload failed: ${msg}`);
+            } finally {
+                setIsUploading(null);
+            }
+        };
+        reader.onerror = () => {
+            toast.error("Error reading file.");
+            setIsUploading(null);
+        };
+        reader.readAsText(file);
+    };
 
     useEffect(() => {
         if (!block?._id) return;
@@ -109,6 +156,34 @@ const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview,
                                 </button>
                             )}
 
+                            {block.status !== 'COMPLETED' && block.status !== 'REVIEW' && (
+                                <button 
+                                    className={`ew-b b-pri ${actionLoading ? 'loading' : ''} ${((block.status === 'DRC' && !block.drcProof?.content) || (block.status === 'LVS' && !block.lvsProof?.content)) ? 'blocked-action' : ''}`}
+                                    onClick={async () => {
+                                        const needsProof = (block.status === 'DRC' && !block.drcProof?.content) || (block.status === 'LVS' && !block.lvsProof?.content);
+                                        if (needsProof) {
+                                            toast.error(`Please upload the ${block.status} report first.`);
+                                            return;
+                                        }
+                                        setActionLoading(true);
+                                        try {
+                                            const statuses = ['NOT_STARTED', 'IN_PROGRESS', 'DRC', 'LVS', 'REVIEW', 'COMPLETED'];
+                                            const nextStatus = statuses[statuses.indexOf(block.status) + 1];
+                                            await onUpdateStatus?.(block._id, nextStatus);
+                                            toast.success(`Workflow advanced to ${nextStatus}`);
+                                        } catch (err) {
+                                            console.error(err);
+                                            toast.error("Transition failed. Sequence error.");
+                                        } finally {
+                                            setActionLoading(false);
+                                        }
+                                    }}
+                                    style={{ flex: 1, minWidth: 140 }}
+                                >
+                                    {actionLoading ? <Activity size={14} className="spin" /> : <Play size={14} />} Move to Next Stage
+                                </button>
+                            )}
+
                             {isManager && !block.escalated && (
                                 <button 
                                     className="ew-b b-red"
@@ -141,6 +216,132 @@ const TimelinePanel = ({ block: initialBlock, onClose, onUpdateStatus, onReview,
                         {block.executionState === 'BLOCKED' && (
                             <div style={{ marginTop: 10, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
                                 ⚠️ Execution locked until upstream dependencies are cleared.
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Manager Verification Audit (View Proofs) */}
+                {isManager && (block.drcProof?.content || block.lvsProof?.content) && (
+                    <div className="timeline-section" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 20 }}>
+                        <div className="timeline-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <ShieldAlert size={14} className="text-accent" /> Verification Reports Audit
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {block.drcProof?.content && (
+                                <div style={{ 
+                                    background: 'var(--bg)', 
+                                    borderRadius: 6, 
+                                    padding: '10px 12px', 
+                                    border: '1px solid var(--border-light)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: 4, background: 'rgba(37, 99, 235, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+                                            <FileText size={16} />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>DRC Verification Report</div>
+                                            <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{block.drcProof.fileName}</div>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        className="ew-b" 
+                                        style={{ height: 28, fontSize: 10 }}
+                                        onClick={() => {
+                                            const win = window.open("", "_blank");
+                                            win.document.write(`<pre style="padding: 20px; font-family: monospace; font-size: 13px; line-height: 1.5; background: #0f172a; color: #f8fafc; margin: 0; min-height: 100vh;">${block.drcProof.content}</pre>`);
+                                            win.document.title = `DRC Report: ${block.name}`;
+                                        }}
+                                    >
+                                        <Eye size={12} /> View Report
+                                    </button>
+                                </div>
+                            )}
+
+                            {block.lvsProof?.content && (
+                                <div style={{ 
+                                    background: 'var(--bg)', 
+                                    borderRadius: 6, 
+                                    padding: '10px 12px', 
+                                    border: '1px solid var(--border-light)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: 4, background: 'rgba(234, 179, 8, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--amber)' }}>
+                                            <FileText size={16} />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>LVS Verification Report</div>
+                                            <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{block.lvsProof.fileName}</div>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        className="ew-b" 
+                                        style={{ height: 28, fontSize: 10 }}
+                                        onClick={() => {
+                                            const win = window.open("", "_blank");
+                                            win.document.write(`<pre style="padding: 20px; font-family: monospace; font-size: 13px; line-height: 1.5; background: #0f172a; color: #f8fafc; margin: 0; min-height: 100vh;">${block.lvsProof.content}</pre>`);
+                                            win.document.title = `LVS Report: ${block.name}`;
+                                        }}
+                                    >
+                                        <Eye size={12} /> View Report
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Proof of Work Upload (Mandatory for DRC/LVS) */}
+                {!isManager && (block.status === 'DRC' || block.status === 'LVS') && (
+                    <div className="timeline-section" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 20 }}>
+                        <div className="timeline-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                             Verification Proof Traceability
+                        </div>
+                        
+                        <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 16, border: '1px dashed var(--border-light)' }}>
+                            {((block.status === 'DRC' && block.drcProof?.content) || (block.status === 'LVS' && block.lvsProof?.content)) ? (
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ color: 'var(--green)', fontSize: 13, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                        <CheckCircle2 size={16} /> Technical Audit Proof Secured
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                        File: {block.status === 'DRC' ? block.drcProof.fileName : block.lvsProof.fileName}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                                        A mandatory {block.status} verification report (.txt) is required to advance.
+                                    </div>
+                                    <label className={`ew-b b-pri ${isUploading === block.status ? 'loading' : ''}`} style={{ cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+                                        {isUploading === block.status ? <Activity size={14} className="spin" /> : <Upload size={14} />}
+                                        {isUploading === block.status ? 'Uploading...' : `Upload ${block.status} Report`}
+                                        <input type="file" accept=".txt" onChange={(e) => handleFileUpload(e, block.status)} hidden disabled={!!isUploading} />
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+
+                        {uploadSuccess && (
+                            <div style={{ 
+                                marginTop: 12, 
+                                padding: '8px 12px', 
+                                background: 'rgba(22, 163, 74, 0.1)', 
+                                color: '#16a34a', 
+                                fontSize: 11, 
+                                fontWeight: 700, 
+                                borderRadius: 6,
+                                textAlign: 'center',
+                                animation: 'slideUp 0.3s ease'
+                            }}>
+                                <CheckCircle2 size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} /> {uploadSuccess}
                             </div>
                         )}
                     </div>

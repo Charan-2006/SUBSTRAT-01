@@ -78,7 +78,7 @@ function parseCSVImport(text) {
         const vals = lines[i].match(/("([^"]*)")|([^,]+)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
         const row = {};
         headers.forEach((h, j) => { if (vals[j] !== undefined) row[h] = vals[j]; });
-        rows.push({ name: row.name || '', type: row.type || '', status: (row.status || 'NOT_STARTED').toUpperCase(), healthStatus: (row.health || row.healthstatus || 'HEALTHY').toUpperCase(), complexity: (row.complexity || 'SIMPLE').toUpperCase(), baseHours: parseInt(row.basehours || row['base hours'] || '0') || 0, description: row.description || '' });
+        rows.push({ name: row.name || '', type: row.type || '', status: (row.status || 'NOT_STARTED').toUpperCase(), healthStatus: (row.health || row.healthstatus || 'HEALTHY').toUpperCase(), complexity: (row.complexity || 'SIMPLE').toUpperCase(), estimatedDurationHours: parseInt(row.estimateddurationhours || row['estimated hours'] || '0') || 0, description: row.description || '' });
     }
     return { rows, errors: [] };
 }
@@ -88,7 +88,7 @@ function parseJSONImport(text) {
         const data = JSON.parse(text);
         const arr = Array.isArray(data) ? data : data.blocks || [];
         if (!arr.length) return { rows: [], errors: ['No blocks found in JSON'] };
-        const rows = arr.map(b => ({ name: b.name || '', type: b.type || '', status: (b.status || 'NOT_STARTED').toUpperCase(), healthStatus: (b.healthStatus || 'HEALTHY').toUpperCase(), complexity: (b.complexity || 'SIMPLE').toUpperCase(), baseHours: b.baseHours || b.estimatedHours || 0, description: b.description || '' }));
+        const rows = arr.map(b => ({ name: b.name || '', type: b.type || '', status: (b.status || 'NOT_STARTED').toUpperCase(), healthStatus: (b.healthStatus || 'HEALTHY').toUpperCase(), complexity: (b.complexity || 'SIMPLE').toUpperCase(), estimatedDurationHours: b.estimatedDurationHours || b.estimatedHours || 0, description: b.description || '' }));
         return { rows, errors: [] };
     } catch (e) { return { rows: [], errors: [`Invalid JSON: ${e.message}`] }; }
 }
@@ -273,8 +273,8 @@ const WorkspaceHeader = ({
                                 </div>
                                 <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border-light)' }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 4 }}>CSV Template</div>
-                                    <code style={{ fontSize: 10, color: 'var(--text-secondary)', display: 'block', lineHeight: 1.5 }}>Name,Type,Status,Health,Complexity,Base Hours,Description</code>
-                                    <button style={{ ...btnSecondary, marginTop: 6, fontSize: 10, padding: '4px 10px' }} onClick={() => downloadFile('Name,Type,Status,Health,Complexity,Base Hours,Description\nExample_Block,Analog Core,NOT_STARTED,HEALTHY,SIMPLE,10,Example block', 'import-template.csv', 'text/csv')}><Download size={10} /> Download Template</button>
+                                    <code style={{ fontSize: 10, color: 'var(--text-secondary)', display: 'block', lineHeight: 1.5 }}>Name,Type,Status,Health,Complexity,Estimated Hours,Description</code>
+                                    <button style={{ ...btnSecondary, marginTop: 6, fontSize: 10, padding: '4px 10px' }} onClick={() => downloadFile('Name,Type,Status,Health,Complexity,Estimated Hours,Description\nExample_Block,Analog Core,NOT_STARTED,HEALTHY,SIMPLE,12,Example block', 'import-template.csv', 'text/csv')}><Download size={10} /> Download Template</button>
                                 </div>
                             </>
                         )}

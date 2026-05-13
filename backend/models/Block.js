@@ -24,13 +24,10 @@ const BlockSchema = new mongoose.Schema({
         enum: ['SIMPLE', 'MEDIUM', 'COMPLEX', 'CRITICAL'],
         default: 'SIMPLE'
     },
-    baseHours: {
+    estimatedDurationHours: {
         type: Number,
-        default: 0
-    },
-    estimatedHours: {
-        type: Number,
-        default: 0
+        default: 1,
+        min: 1
     },
     status: {
         type: String,
@@ -136,10 +133,7 @@ const BlockSchema = new mongoose.Schema({
             durationHours: Number
         }
     ],
-    totalTimeSpent: {
-        type: Number,
-        default: 0
-    },
+
     dependencies: [{
         type: mongoose.Schema.ObjectId,
         ref: 'Block'
@@ -155,10 +149,6 @@ const BlockSchema = new mongoose.Schema({
     },
     lastEscalatedAt: {
         type: Date
-    },
-    expectedDurationHours: {
-        type: Number,
-        default: 0
     },
     actualDurationHours: {
         type: Number,
@@ -207,6 +197,16 @@ const BlockSchema = new mongoose.Schema({
         stagnationIndex: { type: Number, default: 0 },
         priorityRank: { type: Number, default: 0 },
         propagationImpact: { type: Number, default: 0 }
+    },
+    drcProof: {
+        fileName: String,
+        content: String,
+        uploadedAt: Date
+    },
+    lvsProof: {
+        fileName: String,
+        content: String,
+        uploadedAt: Date
     }
 }, { timestamps: true });
 
@@ -214,8 +214,8 @@ const workflowService = require('../services/workflowService');
 
 // Pre-save hook for effort estimation logic
 BlockSchema.pre('save', async function() {
-    if ((this.isModified('complexity') || this.isModified('baseHours') || this.isModified('estimatedArea')) && !this.isModified('estimatedHours')) {
-        this.estimatedHours = workflowService.calculateEstimation(this.baseHours, this.complexity, this.estimatedArea);
+    if (!this.estimatedDurationHours || this.estimatedDurationHours < 1) {
+        this.estimatedDurationHours = workflowService.calculateEstimation(this.type, this.complexity, this.estimatedArea);
     }
     
     // Auto-calculate health before saving
